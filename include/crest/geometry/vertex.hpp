@@ -5,6 +5,7 @@
 #pragma once
 
 #include <ostream>
+#include <cmath>
 
 namespace crest {
 
@@ -65,6 +66,18 @@ namespace crest {
     Vertex<T> midpoint(const Vertex<T> & a, const Vertex<T> &b)
     {
         return (a + b) / static_cast<T>(2);
+    }
+
+    template <typename T>
+    inline T norm_squared(const Vertex<T> & vertex)
+    {
+        return vertex.x * vertex.x + vertex.y * vertex.y;
+    }
+
+    template <typename T>
+    inline T norm(const Vertex<T> & vertex)
+    {
+        return sqrt(norm_squared(vertex));
     }
 
 }

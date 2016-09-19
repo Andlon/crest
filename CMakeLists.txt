@@ -10,7 +10,7 @@ set(UNIT_TEST_SOURCES
         tests/unit/quadrature/triquad.cpp
         tests/unit/basis/linear_lagrangian_basis.cpp
         tests/unit/util/eigen_extensions.cpp
-        include/crest/wave/solver.hpp)
+        tests/unit/geometry/refinement.cpp)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(GCC_CXX_FLAGS "-Wall -Wextra -Werror")

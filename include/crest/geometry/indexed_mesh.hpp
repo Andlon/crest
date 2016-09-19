@@ -1,6 +1,7 @@
 #pragma once
 
 #include <crest/geometry/vertex.hpp>
+#include <crest/geometry/triangle.hpp>
 #include <crest/util/algorithms.hpp>
 
 #include <array>
@@ -10,6 +11,7 @@
 #include <unordered_map>
 #include <ostream>
 #include <limits>
+#include <cassert>
 
 namespace crest {
     typedef uint32_t default_index_type;
@@ -46,6 +48,7 @@ namespace crest {
 
         constexpr static SentinelType SENTINEL = std::numeric_limits<Index>::max();
 
+        IndexedMesh() {}
         explicit IndexedMesh(std::vector<Vertex> vertices,
                              std::vector<Element> indices);
 
@@ -53,7 +56,8 @@ namespace crest {
         const std::vector<Element> &    elements() const { return _elements; }
         const std::vector<Neighbors> &  neighbors() const { return _neighbors; }
 
-        std::array<Index, 3> neighbors_for(Index element_index) const;
+        std::array<Index, 3>    neighbors_for(Index element_index) const;
+        Triangle<Scalar>        triangle_for(Index element_index) const;
 
         Index num_vertices() const { return static_cast<Index>(_vertices.size()); }
         Index num_elements() const { return static_cast<Index>(_elements.size()); }
@@ -137,7 +141,10 @@ namespace crest {
                 const auto & element = elements[element_index];
                 for (auto vertex_index : element.vertex_indices)
                 {
-                    if (vertex_index >= num_vertices) throw std::out_of_range("Invalid vertex index in element.");
+                    if (vertex_index < 0 || vertex_index >= num_vertices)
+                    {
+                        throw std::out_of_range("Invalid vertex index in element.");
+                    }
                     vertex_to_triangles[vertex_index].push_back(element_index);
                 }
             }
@@ -226,8 +233,20 @@ namespace crest {
     template <typename T, typename I>
     inline std::array<I, 3> IndexedMesh<T, I>::neighbors_for(I element_index) const
     {
+        assert(element_index >= 0 && element_index < num_elements());
         return _neighbors[element_index].indices;
     };
+
+    template <typename T, typename I>
+    inline Triangle<T> IndexedMesh<T, I>::triangle_for(I element_index) const
+    {
+        assert(element_index >= 0 && element_index < num_elements());
+        const auto indices = _elements[static_cast<size_t>(element_index)].vertex_indices;
+        const auto a = _vertices[indices[0]];
+        const auto b = _vertices[indices[1]];
+        const auto c = _vertices[indices[2]];
+        return Triangle<T>(a, b, c);
+    }
 
     template <typename T, typename I>
     inline void IndexedMesh<T, I>::compress()
