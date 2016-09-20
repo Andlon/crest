@@ -6,6 +6,7 @@
 using crest::IndexedMesh;
 
 using ::testing::ElementsAreArray;
+using ::testing::ElementsAre;
 using ::testing::Pointwise;
 using ::testing::Eq;
 using ::testing::IsEmpty;
@@ -320,18 +321,30 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
     mesh_both_refined.refine_marked({0, 1});
 
-    // TODO: Tests for neighbors
+    const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3}));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(0), ElementsAre(2, 3, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(1), ElementsAre(3, 2, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(2), ElementsAre(1, 0, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(3), ElementsAre(0, 1, NO_NEIGHBOR));
 
     EXPECT_THAT(mesh_1_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_1_refined.elements(), Pointwise(Eq(), expected_elements_1_refined));
     EXPECT_THAT(mesh_1_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3}));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(0), ElementsAre(3, 2, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(1), ElementsAre(2, 3, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(2), ElementsAre(0, 1, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(3), ElementsAre(1, 0, NO_NEIGHBOR));
 
     EXPECT_THAT(mesh_both_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_both_refined.elements(), Pointwise(Eq(), expected_elements_both_refined));
     EXPECT_THAT(mesh_both_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3}));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(0), ElementsAre(2, 3, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(1), ElementsAre(3, 2, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(2), ElementsAre(1, 0, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(3), ElementsAre(0, 1, NO_NEIGHBOR));
 }
 
 TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_edge)
@@ -383,16 +396,81 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
     mesh_both_refined.refine_marked({0, 1});
 
-    // TODO: Tests for neighbors
+    const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_0_refined));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 5}));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(0), ElementsAre(2, 4, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(1), ElementsAre(4, NO_NEIGHBOR, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(2), ElementsAre(3, 0, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(3), ElementsAre(4, 2, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.neighbors_for(4), ElementsAre(0, 3, 1));
 
     EXPECT_THAT(mesh_1_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_1_refined));
     EXPECT_THAT(mesh_1_refined.elements(), Pointwise(Eq(), expected_elements_1_refined));
     EXPECT_THAT(mesh_1_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 4}));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(0), ElementsAre(NO_NEIGHBOR, NO_NEIGHBOR, 2));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(1), ElementsAre(2, NO_NEIGHBOR, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_1_refined.neighbors_for(2), ElementsAre(NO_NEIGHBOR, 1, 0));
 
     EXPECT_THAT(mesh_both_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_both_refined));
     EXPECT_THAT(mesh_both_refined.elements(), Pointwise(Eq(), expected_elements_both_refined));
     EXPECT_THAT(mesh_both_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 5}));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(0), ElementsAre(2, 4, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(1), ElementsAre(4, NO_NEIGHBOR, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(2), ElementsAre(3, 0, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(3), ElementsAre(4, 2, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.neighbors_for(4), ElementsAre(0, 3, 1));
+}
+
+TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)
+{
+    // It was discovered that this particular mesh configuration
+    // made refine_marked produce the wrong mesh.
+
+    const std::vector<Vertex> vertices {
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0),
+            Vertex(0.5, 0.5)
+    };
+
+    const std::vector<Element> elements {
+            Element({0, 4, 3}),
+            Element({2, 4, 1}),
+            Element({1, 4, 0}),
+            Element({3, 4, 2})
+    };
+
+    auto mesh = IndexedMesh<>(vertices, elements);
+    mesh.refine_marked({0, 1, 2, 3, 4});
+
+    const std::vector<Vertex> expected_vertices {
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0),
+            Vertex(0.5, 0.5),
+            Vertex(0.0, 0.5),
+            Vertex(1.0, 0.5),
+            Vertex(0.5, 0.0),
+            Vertex(0.5, 1.0)
+    };
+
+    const std::vector<Element> expected_elements {
+            Element({4, 5, 0}),
+            Element({4, 6, 2}),
+            Element({4, 7, 1}),
+            Element({4, 8, 3}),
+            Element({3, 5, 4}),
+            Element({1, 6, 4}),
+            Element({0, 7, 4}),
+            Element({2, 8, 4})
+    };
+
+    EXPECT_THAT(mesh.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
+    EXPECT_THAT(mesh.elements(), ElementsAreArray(expected_elements));
+
+    // TODO: Neighbors
 }
