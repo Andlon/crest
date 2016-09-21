@@ -39,3 +39,12 @@ add_custom_target(unit COMMAND unit_tests)
 # Run all tests using the 'check' target
 add_custom_target(check COMMAND unit_tests)
 
+# Tools
+
+# Mesh - a tool to generate refinements from a starting triangulation
+set(MESH_SOURCES tools/mesh/main.cpp)
+
+add_executable(mesh ${MESH_SOURCES})
+target_include_directories(mesh PRIVATE external/json)
+set_property(TARGET mesh PROPERTY CXX_STANDARD 14)
+
