@@ -305,6 +305,11 @@ namespace crest {
         constexpr I NO_NEIGHBOR = SENTINEL;
         std::vector<I> nonconforming;
 
+        if (std::any_of(marked.cbegin(), marked.cend(), [this] (auto i) { return i >= this->num_elements(); }))
+        {
+            throw std::invalid_argument("Set of marked elements contains element indices out of bounds.");
+        }
+
         do {
             // The algorithm may mark the same element multiple times in the course of a single iteration
             // so we need to remove duplicates first. We also sort it so we can use binary search later.

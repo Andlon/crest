@@ -115,7 +115,7 @@ protected:
     std::vector<Vertex>     vertices_triangle;
     std::vector<Element>    elements_triangle;
 
-    // A triangulation of the unit square with a regular pattern consisting of 13 vertices and 15 triangles,
+    // A triangulation of the unit square with a regular pattern consisting of 13 vertices and 16 triangles,
     // showcasing vertices both on the boundary and in the interior.
     std::vector<Vertex>     vertices_unit_square_with_interior;
     std::vector<Element>    elements_unit_square_with_interior;
@@ -444,7 +444,7 @@ TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)
     };
 
     auto mesh = IndexedMesh<>(vertices, elements);
-    mesh.refine_marked({0, 1, 2, 3, 4});
+    mesh.refine_marked({0, 1, 2, 3});
 
     const std::vector<Vertex> expected_vertices {
             Vertex(0.0, 0.0),
@@ -473,4 +473,11 @@ TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)
     EXPECT_THAT(mesh.elements(), ElementsAreArray(expected_elements));
 
     // TODO: Neighbors
+}
+
+TEST_F(indexed_mesh_refine_marked_test, throws_when_marked_contains_nonexisting_element_indices)
+{
+    auto mesh = IndexedMesh<>(vertices_unit_square_with_interior, elements_unit_square_with_interior);
+    // The mesh in question has 16 elements, so index 16 is out of bounds, and so we expect it to throw!
+    ASSERT_THROW(mesh.refine_marked({ 0, 2, 6, 16 }), std::invalid_argument);
 }
