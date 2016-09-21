@@ -90,9 +90,14 @@ TEST_F(refinement_test, expected_single_bisection)
     EXPECT_THAT(mesh.elements(), Pointwise(Eq(), expected_elements));
 }
 
-TEST_F(refinement_test, all_elements_reasonably_sized)
+class refinement_test_with_tolerance : public refinement_test, public ::testing::WithParamInterface<double>
 {
-    double tolerance =  0.7;
+
+};
+
+TEST_P(refinement_test_with_tolerance, all_elements_have_expected_diameter)
+{
+    const double tolerance =  GetParam();
 
     // The `unit_square_2_elements` mesh has the following useful property:
     // The number of bisections n necessary for all edges in the mesh to have diameters smaller than tolerance
@@ -119,3 +124,7 @@ TEST_F(refinement_test, all_elements_reasonably_sized)
     EXPECT_THAT(diameters.size(), mesh.num_elements());
     EXPECT_THAT(diameters, Each(DoubleEq(expected_diameter)));
 }
+
+INSTANTIATE_TEST_CASE_P(various_tolerances,
+                        refinement_test_with_tolerance,
+                        ::testing::Values(1.4, 0.7, 0.35, 0.175));
