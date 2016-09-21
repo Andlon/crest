@@ -30,3 +30,6 @@
 
 # Use target/ directory for in-source-like builds
 target/
+
+# Python stuff
+__pycache__/
