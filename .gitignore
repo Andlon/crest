@@ -27,3 +27,6 @@
 *.exe
 *.out
 *.app
+
+# Use target/ directory for in-source-like builds
+target/
