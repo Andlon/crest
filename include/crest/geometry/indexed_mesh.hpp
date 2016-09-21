@@ -339,7 +339,7 @@ namespace crest {
                     if (!edge_is_on_boundary(local_edge_index))
                     {
                         const auto neighbor = neighbors[local_edge_index];
-                        auto neighbors_of_neighbor = neighbors_for(neighbor);
+                        auto & neighbors_of_neighbor = _neighbors[neighbor].indices;
                         auto pos_of_element_in_neighbor =
                                 std::find(neighbors_of_neighbor.begin(), neighbors_of_neighbor.end(), element_index);
 
