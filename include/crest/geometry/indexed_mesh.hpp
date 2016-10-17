@@ -85,6 +85,14 @@ namespace crest {
         void compress();
 
         /**
+         * Effectively makes every triangle its own ancestor.
+         *
+         * If one represents the mesh as a forest of trees, this would take every leaf node and build a new
+         * forest in which each lofe node becomes a standalone tree.
+         */
+        void reset_ancestry();
+
+        /**
          * Returns the sentinel value used when a sentinel value is required. This is a special value at the extreme
          * of the range of valid values in the type, and is used to indicate special properties, such as when
          * a triangle has no neighbor (the index of the neighbor is then given by a sentinel value).
@@ -297,6 +305,13 @@ namespace crest {
 
         return interior;
     };
+
+    template <typename T, typename I>
+    inline void IndexedMesh<T, I>::reset_ancestry()
+    {
+        std::transform(_ancestors.begin(), _ancestors.end(), _ancestors.begin(),
+                       [] (auto) { return IndexedMesh<T, I>::sentinel(); });
+    }
 
     template <typename T, typename I>
     inline void IndexedMesh<T, I>::bisect_marked(std::vector<I> marked)

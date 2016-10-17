@@ -263,6 +263,35 @@ TEST_F(indexed_mesh_test, ancestors_for_diamond) {
     EXPECT_THAT(mesh.ancestor_for(3), Eq(NO_ANCESTOR));
 }
 
+TEST_F(indexed_mesh_test, reset_ancestry) {
+    std::vector<Vertex> vertices {
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0)
+    };
+
+    std::vector<Element> elements {
+            Element({3, 0, 1}),
+            Element({1, 2, 3})
+    };
+
+    auto mesh = IndexedMesh<>(vertices, elements);
+    const auto NO_ANCESTOR = mesh.sentinel();
+    mesh.bisect_marked({0, 1});
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh.ancestor_for(2), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(3), Eq(1u));
+
+    mesh.reset_ancestry();
+
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(2), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(3), Eq(NO_ANCESTOR));
+}
+
 TEST_F(indexed_mesh_refine_marked_test, single_triangle)
 {
     const auto & vertices = vertices_triangle;
