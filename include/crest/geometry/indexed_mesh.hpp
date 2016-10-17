@@ -46,8 +46,6 @@ namespace crest {
         typedef crest::Neighbors<Index> Neighbors;
         typedef Index SentinelType;
 
-        constexpr static SentinelType SENTINEL = std::numeric_limits<Index>::max();
-
         IndexedMesh() {}
         explicit IndexedMesh(std::vector<Vertex> vertices,
                              std::vector<Element> indices);
@@ -84,6 +82,13 @@ namespace crest {
          * refinement.
          */
         void compress();
+
+        /**
+         * Returns the sentinel value used when a sentinel value is required. This is a special value at the extreme
+         * of the range of valid values in the type, and is used to indicate special properties, such as when
+         * a triangle has no neighbor (the index of the neighbor is then given by a sentinel value).
+         */
+        constexpr static SentinelType sentinel() { return std::numeric_limits<Index>::max(); }
 
     private:
         std::vector<Vertex> _vertices;
@@ -180,7 +185,7 @@ namespace crest {
         template <typename T, typename I>
         std::vector<I> determine_new_boundary_vertices(const IndexedMesh<T, I> & mesh)
         {
-            const auto NO_NEIGHBOR = mesh.SENTINEL;
+            const auto NO_NEIGHBOR = mesh.sentinel();
             std::vector<I> boundary;
 
             auto push_boundary_edge = [&boundary] (auto from, auto to)
@@ -307,7 +312,7 @@ namespace crest {
         // This is important, because for some applications (such as computer graphics), the winding order defines
         // the orientation of the face associated with the triangle.
 
-        constexpr I NO_NEIGHBOR = SENTINEL;
+        constexpr I NO_NEIGHBOR = sentinel();
         std::vector<I> nonconforming;
 
         if (std::any_of(marked.cbegin(), marked.cend(), [this] (auto i) { return i >= this->num_elements(); }))
@@ -384,7 +389,7 @@ namespace crest {
                 auto right_neighbors = Neighbors({NO_NEIGHBOR, left_index, neighbors[1] });
                 const auto refinement_edge_neighbor = neighbors[2];
 
-                I midpoint_index = SENTINEL;
+                I midpoint_index = sentinel();
                 if (!edge_has_hanging_node(2) || edge_is_on_boundary(2))
                 {
                     // There is currently no hanging node on the refinement edge
@@ -436,7 +441,7 @@ namespace crest {
                 update_neighbor_of(0, left_index);
                 update_neighbor_of(1, right_index);
 
-                assert(midpoint_index != SENTINEL);
+                assert(midpoint_index != sentinel());
             }
 
             // Note that this pattern minimizes reallocation

@@ -123,7 +123,7 @@ protected:
     std::vector<Vertex>     vertices_unit_square_1_interior_node;
     std::vector<Element>    elements_unit_square_1_interior_node;
 
-    constexpr static IndexedMesh<>::SentinelType NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
+    constexpr static IndexedMesh<>::SentinelType NO_NEIGHBOR = IndexedMesh<>::sentinel();
 };
 
 class indexed_mesh_refine_marked_test : public indexed_mesh_test
@@ -321,7 +321,7 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
     mesh_both_refined.bisect_marked({0, 1});
 
-    const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
+    const auto NO_NEIGHBOR = IndexedMesh<>::sentinel();
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3}));
@@ -396,7 +396,7 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
     mesh_both_refined.bisect_marked({0, 1});
 
-    const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
+    const auto NO_NEIGHBOR = IndexedMesh<>::sentinel();
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_0_refined));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 5}));
