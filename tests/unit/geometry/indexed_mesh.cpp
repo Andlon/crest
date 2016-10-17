@@ -245,6 +245,24 @@ TEST_F(indexed_mesh_test, interior_for_unit_square_1_interior_node)
     EXPECT_THAT(interior, ElementsAreArray({4u}));
 }
 
+TEST_F(indexed_mesh_test, ancestors_for_unit_square) {
+    const auto mesh = IndexedMesh<>(vertices_unit_square, elements_unit_square);
+    const auto NO_ANCESTOR = mesh.sentinel();
+
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
+}
+
+TEST_F(indexed_mesh_test, ancestors_for_diamond) {
+    const auto mesh = IndexedMesh<>(vertices_diamond, elements_diamond);
+    const auto NO_ANCESTOR = mesh.sentinel();
+
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(2), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(3), Eq(NO_ANCESTOR));
+}
+
 TEST_F(indexed_mesh_refine_marked_test, single_triangle)
 {
     const auto & vertices = vertices_triangle;
@@ -271,6 +289,9 @@ TEST_F(indexed_mesh_refine_marked_test, single_triangle)
     EXPECT_THAT(mesh.neighbors_for(1), ElementsAreArray({NO_NEIGHBOR, 0u, NO_NEIGHBOR}));
 
     EXPECT_THAT(mesh.boundary_vertices(), ElementsAreArray({0, 1, 2, 3}));
+
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(0u));
 }
 
 TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edge)
@@ -329,6 +350,10 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     EXPECT_THAT(mesh_0_refined.neighbors_for(1), ElementsAre(3, 2, NO_NEIGHBOR));
     EXPECT_THAT(mesh_0_refined.neighbors_for(2), ElementsAre(1, 0, NO_NEIGHBOR));
     EXPECT_THAT(mesh_0_refined.neighbors_for(3), ElementsAre(0, 1, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(2), Eq(0u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(3), Eq(1u));
 
     EXPECT_THAT(mesh_1_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_1_refined.elements(), Pointwise(Eq(), expected_elements_1_refined));
@@ -337,6 +362,10 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     EXPECT_THAT(mesh_1_refined.neighbors_for(1), ElementsAre(2, 3, NO_NEIGHBOR));
     EXPECT_THAT(mesh_1_refined.neighbors_for(2), ElementsAre(0, 1, NO_NEIGHBOR));
     EXPECT_THAT(mesh_1_refined.neighbors_for(3), ElementsAre(1, 0, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(2), Eq(1u));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(3), Eq(0u));
 
     EXPECT_THAT(mesh_both_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
     EXPECT_THAT(mesh_both_refined.elements(), Pointwise(Eq(), expected_elements_both_refined));
@@ -345,6 +374,10 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     EXPECT_THAT(mesh_both_refined.neighbors_for(1), ElementsAre(3, 2, NO_NEIGHBOR));
     EXPECT_THAT(mesh_both_refined.neighbors_for(2), ElementsAre(1, 0, NO_NEIGHBOR));
     EXPECT_THAT(mesh_both_refined.neighbors_for(3), ElementsAre(0, 1, NO_NEIGHBOR));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(2), Eq(0u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(3), Eq(1u));
 }
 
 TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_edge)
@@ -397,6 +430,7 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     mesh_both_refined.bisect_marked({0, 1});
 
     const auto NO_NEIGHBOR = IndexedMesh<>::sentinel();
+    const auto NO_ANCESTOR = NO_NEIGHBOR;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_0_refined));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 5}));
@@ -405,6 +439,11 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     EXPECT_THAT(mesh_0_refined.neighbors_for(2), ElementsAre(3, 0, NO_NEIGHBOR));
     EXPECT_THAT(mesh_0_refined.neighbors_for(3), ElementsAre(4, 2, NO_NEIGHBOR));
     EXPECT_THAT(mesh_0_refined.neighbors_for(4), ElementsAre(0, 3, 1));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(2), Eq(0u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(3), Eq(1u));
+    EXPECT_THAT(mesh_0_refined.ancestor_for(4), Eq(1u));
 
     EXPECT_THAT(mesh_1_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_1_refined));
     EXPECT_THAT(mesh_1_refined.elements(), Pointwise(Eq(), expected_elements_1_refined));
@@ -412,6 +451,9 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     EXPECT_THAT(mesh_1_refined.neighbors_for(0), ElementsAre(NO_NEIGHBOR, NO_NEIGHBOR, 2));
     EXPECT_THAT(mesh_1_refined.neighbors_for(1), ElementsAre(2, NO_NEIGHBOR, NO_NEIGHBOR));
     EXPECT_THAT(mesh_1_refined.neighbors_for(2), ElementsAre(NO_NEIGHBOR, 1, 0));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(0), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(2), Eq(1u));
 
     EXPECT_THAT(mesh_both_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_both_refined));
     EXPECT_THAT(mesh_both_refined.elements(), Pointwise(Eq(), expected_elements_both_refined));
@@ -421,6 +463,11 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     EXPECT_THAT(mesh_both_refined.neighbors_for(2), ElementsAre(3, 0, NO_NEIGHBOR));
     EXPECT_THAT(mesh_both_refined.neighbors_for(3), ElementsAre(4, 2, NO_NEIGHBOR));
     EXPECT_THAT(mesh_both_refined.neighbors_for(4), ElementsAre(0, 3, 1));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(2), Eq(0u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(3), Eq(1u));
+    EXPECT_THAT(mesh_both_refined.ancestor_for(4), Eq(1u));
 }
 
 TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)

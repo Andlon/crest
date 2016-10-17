@@ -56,6 +56,7 @@ namespace crest {
 
         std::array<Index, 3>    neighbors_for(Index element_index) const;
         Triangle<Scalar>        triangle_for(Index element_index) const;
+        Index                   ancestor_for(Index element_index) const;
 
         Index num_vertices() const { return static_cast<Index>(_vertices.size()); }
         Index num_elements() const { return static_cast<Index>(_elements.size()); }
@@ -95,6 +96,7 @@ namespace crest {
         std::vector<Element> _elements;
         std::vector<Neighbors> _neighbors;
         std::vector<Index> _boundary;
+        std::vector<Index> _ancestors;
     };
 
     class conformance_error : public std::logic_error
@@ -238,6 +240,7 @@ namespace crest {
                 _neighbors(detail::find_neighbors(static_cast<I>(_vertices.size()), _elements))
     {
         _boundary = detail::determine_new_boundary_vertices(*this);
+        _ancestors = std::vector<I>(num_elements(), sentinel());
     }
 
     template <typename T, typename I>
@@ -256,6 +259,13 @@ namespace crest {
         const auto b = _vertices[indices[1]];
         const auto c = _vertices[indices[2]];
         return Triangle<T>(a, b, c);
+    }
+
+    template <typename T, typename I>
+    inline I IndexedMesh<T, I>::ancestor_for(I element_index) const
+    {
+        assert(element_index >= 0 && element_index < num_elements());
+        return _ancestors[element_index];
     }
 
     template <typename T, typename I>
@@ -437,6 +447,19 @@ namespace crest {
                 _elements.push_back(right);
                 _neighbors[left_index] = left_neighbors;
                 _neighbors.push_back(right_neighbors);
+
+                if (_ancestors[left_index] == sentinel())
+                {
+                    // If the element being refined has no ancestor, we want to make this element the ancestor
+                    // of the two new elements.
+                    _ancestors[left_index] = element_index;
+                    _ancestors.push_back(element_index);
+                } else
+                {
+                    // If the element being refined has an ancestor, we want to keep this ancestor in the
+                    // two new elements (and hence we do not need to change the ancestor of left_index).
+                    _ancestors.push_back(_ancestors[left_index]);
+                }
 
                 update_neighbor_of(0, left_index);
                 update_neighbor_of(1, right_index);
