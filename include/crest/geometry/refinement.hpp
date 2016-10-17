@@ -48,7 +48,7 @@ namespace crest
             // element after each bisection.
             Index elements_before_refine = mesh.num_elements();
             marked = detail::mark_refinement_candidates(mesh, std::move(marked), tolerance);
-            mesh.refine_marked(marked);
+            mesh.bisect_marked(marked);
             const auto num_refinements = mesh.num_elements() - elements_before_refine;
 
             // Keep the existing marked element indices (which now correspond to newly bisected elements),

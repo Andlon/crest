@@ -71,7 +71,12 @@ namespace crest {
         // huge allocation of a vector of mostly consecutive integers.
         std::vector<Index> compute_interior_vertices() const;
 
-        void refine_marked(std::vector<Index> marked);
+        /**
+         * Use newest-vertex-bisection (NVB) to bisect all triangles indicated by their corresponding indices
+         * in the supplied vector of indices.
+         * @param marked
+         */
+        void bisect_marked(std::vector<Index> marked);
 
         /**
          * Attempts to compress the data structure so that it consumes less memory. Only use this when you are sure
@@ -279,7 +284,7 @@ namespace crest {
     };
 
     template <typename T, typename I>
-    inline void IndexedMesh<T, I>::refine_marked(std::vector<I> marked)
+    inline void IndexedMesh<T, I>::bisect_marked(std::vector<I> marked)
     {
         // The implementation here relies heavily on certain important conventions.
         // First, for any element K defined by vertex indices (z0, z1, z2),

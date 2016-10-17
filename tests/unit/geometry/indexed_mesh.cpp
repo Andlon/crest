@@ -259,7 +259,7 @@ TEST_F(indexed_mesh_refine_marked_test, single_triangle)
     };
 
     auto mesh = IndexedMesh<>(vertices, elements);
-    mesh.refine_marked({0});
+    mesh.bisect_marked({0});
 
     EXPECT_EQ(4u, mesh.vertices().size());
     EXPECT_EQ(2u, mesh.elements().size());
@@ -313,13 +313,13 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_with_shared_refinement_edg
     };
 
     auto mesh_0_refined = IndexedMesh<>(vertices, elements);
-    mesh_0_refined.refine_marked({0});
+    mesh_0_refined.bisect_marked({0});
 
     auto mesh_1_refined = IndexedMesh<>(vertices, elements);
-    mesh_1_refined.refine_marked({1});
+    mesh_1_refined.bisect_marked({1});
 
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
-    mesh_both_refined.refine_marked({0, 1});
+    mesh_both_refined.bisect_marked({0, 1});
 
     const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
@@ -388,13 +388,13 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     auto expected_elements_both_refined = expected_elements_0_refined;
 
     auto mesh_0_refined = IndexedMesh<>(vertices, elements);
-    mesh_0_refined.refine_marked({0});
+    mesh_0_refined.bisect_marked({0});
 
     auto mesh_1_refined = IndexedMesh<>(vertices, elements);
-    mesh_1_refined.refine_marked({1});
+    mesh_1_refined.bisect_marked({1});
 
     auto mesh_both_refined = IndexedMesh<>(vertices, elements);
-    mesh_both_refined.refine_marked({0, 1});
+    mesh_both_refined.bisect_marked({0, 1});
 
     const auto NO_NEIGHBOR = IndexedMesh<>::SENTINEL;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_0_refined));
@@ -426,7 +426,7 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
 TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)
 {
     // It was discovered that this particular mesh configuration
-    // made refine_marked produce the wrong mesh.
+    // made bisect_marked produce the wrong mesh.
 
     const std::vector<Vertex> vertices {
             Vertex(0.0, 0.0),
@@ -444,7 +444,7 @@ TEST_F(indexed_mesh_refine_marked_test, unit_square_regression)
     };
 
     auto mesh = IndexedMesh<>(vertices, elements);
-    mesh.refine_marked({0, 1, 2, 3});
+    mesh.bisect_marked({0, 1, 2, 3});
 
     const std::vector<Vertex> expected_vertices {
             Vertex(0.0, 0.0),
@@ -479,5 +479,5 @@ TEST_F(indexed_mesh_refine_marked_test, throws_when_marked_contains_nonexisting_
 {
     auto mesh = IndexedMesh<>(vertices_unit_square_with_interior, elements_unit_square_with_interior);
     // The mesh in question has 16 elements, so index 16 is out of bounds, and so we expect it to throw!
-    ASSERT_THROW(mesh.refine_marked({ 0, 2, 6, 16 }), std::invalid_argument);
+    ASSERT_THROW(mesh.bisect_marked({0, 2, 6, 16}), std::invalid_argument);
 }
