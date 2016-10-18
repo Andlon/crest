@@ -11,7 +11,8 @@ set(UNIT_TEST_SOURCES
         tests/unit/basis/linear_lagrangian_basis.cpp
         tests/unit/util/eigen_extensions.cpp
         tests/unit/geometry/refinement.cpp
-        tests/unit/quadrature/simpsons.cpp)
+        tests/unit/quadrature/simpsons.cpp
+        tests/unit/geometry/mesh_algorithms.cpp)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(GCC_CXX_FLAGS "-Wall -Wextra -Werror")
