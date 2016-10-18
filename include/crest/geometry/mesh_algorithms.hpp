@@ -5,6 +5,7 @@
 #include <set>
 #include <queue>
 #include <algorithm>
+#include <limits>
 
 #include <crest/geometry/indexed_mesh.hpp>
 
@@ -26,19 +27,7 @@ namespace crest {
         // minimum number of edges between the vertex and any of the vertices contained in the root element.
         std::unordered_map<Index, unsigned int> vertex_distances;
 
-        // Define the distance of an already visited element to be the maximum of the distances of its vertices
-        const auto element_dist = [&vertex_distances, &mesh] (auto e)
-        {
-            const auto vertices = mesh.elements()[e].vertex_indices;
-            const auto distances = {
-                    vertex_distances[vertices[0]],
-                    vertex_distances[vertices[1]],
-                    vertex_distances[vertices[2]]
-            };
-            return *std::max_element(distances.begin(), distances.end());
-        };
-
-        // Below we implement a breadth-first search to find all elements in the patch
+        // Below we implement a modified breadth-first search to find all elements in the patch
         const auto root_vertices = mesh.elements()[element].vertex_indices;
         for (const auto v : root_vertices) vertex_distances[v] = 0;
 
@@ -50,7 +39,6 @@ namespace crest {
         {
             const auto current = queue.front();
             queue.pop();
-            //)const auto current_dist = element_dist(current);
 
             for (const auto neighbor : mesh.neighbors_for(current))
             {
@@ -58,19 +46,30 @@ namespace crest {
                 {
                     const auto vertices = mesh.elements()[neighbor].vertex_indices;
                     unsigned int min_vertex_dist = std::numeric_limits<unsigned int>::max();
+                    unsigned int offset = 0;
 
                     for (const auto v : vertices)
                     {
                         const auto it = vertex_distances.find(v);
-                        if (it != vertex_distances.end()) min_vertex_dist = std::min(min_vertex_dist, it->second);
+                        if (it != vertex_distances.end()) {
+                            const auto v_dist = it->second;
+                            if (v_dist <= min_vertex_dist) min_vertex_dist = v_dist;
+                            else offset = 1;
+                        }
+                        else offset = 1;
                     }
 
+                    // Define the distance of 'neighbor' to be the maximum of the distances of its vertices,
+                    // which is either min_vertex_dist or (min_vertex_dist + 1)
+                    const auto dist = min_vertex_dist + offset;
                     for (const auto v : vertices)
                     {
-                        if (vertex_distances.count(v) == 0) vertex_distances[v] = min_vertex_dist + 1;
+                        // Update the distance of the vertices which do not have a recorded distance already.
+                        // This distance coincides with the distance of the element.
+                        if (vertex_distances.count(v) == 0) vertex_distances[v] = dist;
                     }
 
-                    if (patch.count(neighbor) == 0 && element_dist(neighbor) <= max_distance)
+                    if (patch.count(neighbor) == 0 && dist <= max_distance)
                     {
                         queue.push(neighbor);
                         patch.insert(neighbor);
