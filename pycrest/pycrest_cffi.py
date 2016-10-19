@@ -50,7 +50,6 @@ def _flat_mesh_data_to_mesh(data):
 def bisect_to_tolerance(initial_mesh, tolerance):
     flat = _mesh_to_flat_mesh_data(initial_mesh)
     flat_result = _crest.bisect_to_tolerance(flat, tolerance)
-    print("Finished bisection!")
     mesh_result = _flat_mesh_data_to_mesh(flat_result)
     _crest.delete_flat_mesh_data(flat_result)
     return mesh_result

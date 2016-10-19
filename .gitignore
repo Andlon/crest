@@ -1,3 +1,6 @@
+# Python intermediate output
+.cache/
+
 # Compiled Object files
 *.slo
 *.lo
