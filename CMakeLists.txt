@@ -41,6 +41,11 @@ add_custom_target(unit COMMAND unit_tests)
 # Run all tests using the 'check' target
 add_custom_target(check COMMAND unit_tests)
 
+# Pycrest
+set(PYCREST_SOURCES pycrest/pycrest.cpp)
+add_library(pycrest SHARED ${PYCREST_SOURCES})
+set_property(TARGET pycrest PROPERTY CXX_STANDARD 14)
+
 # Tools
 
 # Mesh - a tool to generate refinements from a starting triangulation
