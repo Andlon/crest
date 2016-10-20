@@ -73,7 +73,7 @@ namespace crest
             search_space.reserve(mesh.num_elements());
             algo::fill_strided_integers_n(std::back_inserter(search_space), mesh.num_elements());
 
-            for (size_t k = 0; k < 2 * K; ++k)
+            for (size_t k = 1; k < 2 * K; ++k)
             {
                 const auto p1 = p + 1.0;
                 const auto m = static_cast<Scalar>(k);
