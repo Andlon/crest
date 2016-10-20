@@ -10,7 +10,7 @@ _ffi.cdef("""
 typedef struct flat_mesh_data
 {
     double * vertices;
-    int * elements;
+    int32_t * elements;
     size_t vertices_size;
     size_t elements_size;
 } flat_mesh_data;
@@ -34,7 +34,7 @@ def _mesh_to_flat_mesh_data(mesh):
     data.elements_size = 3 * mesh.num_elements
     # Here we use the fact that Mesh2d guarantees that the data is C-contiguous
     data.vertices = _ffi.cast("double *", mesh.vertices.ctypes.data)
-    data.elements = _ffi.cast("int *", mesh.elements.ctypes.data)
+    data.elements = _ffi.cast("int32_t *", mesh.elements.ctypes.data)
     return data
 
 
@@ -48,7 +48,7 @@ def _flat_mesh_data_to_mesh(data):
     num_elements = int(data.elements_size / 3)
 
     vertex_buffer = _ffi.buffer(data.vertices, data.vertices_size * _ffi.sizeof("double"))
-    element_buffer = _ffi.buffer(data.elements, data.elements_size * _ffi.sizeof("int"))
+    element_buffer = _ffi.buffer(data.elements, data.elements_size * _ffi.sizeof("int32_t"))
 
     vertices = np.frombuffer(vertex_buffer, dtype=np.float64).reshape((num_vertices, 2))
     elements = np.frombuffer(element_buffer, dtype=np.int32).reshape((num_elements, 3))

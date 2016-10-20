@@ -5,7 +5,7 @@
 
 namespace
 {
-    crest::IndexedMesh<double, int> mesh_from_flat_data(const flat_mesh_data * mesh_data)
+    crest::IndexedMesh<double, int32_t> mesh_from_flat_data(const flat_mesh_data * mesh_data)
     {
         assert(mesh_data->vertices_size % 2 == 0);
         assert(mesh_data->elements_size % 3 == 0);
@@ -25,26 +25,26 @@ namespace
             vertices.emplace_back(Vertex<double>(x, y));
         }
 
-        std::vector<crest::Element<int>> elements;
+        std::vector<crest::Element<int32_t>> elements;
         elements.reserve(num_elements);
         for (size_t e = 0; e < num_elements; ++e)
         {
             const auto a = mesh_data->elements[3 * e + 0];
             const auto b = mesh_data->elements[3 * e + 1];
             const auto c = mesh_data->elements[3 * e + 2];
-            elements.emplace_back(Element<int>({a, b, c}));
+            elements.emplace_back(Element<int32_t>({a, b, c}));
         }
 
-        return crest::IndexedMesh<double, int>(vertices, elements);
+        return crest::IndexedMesh<double, int32_t>(vertices, elements);
     };
 
-    flat_mesh_data * flat_data_from_mesh(crest::IndexedMesh<double, int> mesh)
+    flat_mesh_data * flat_data_from_mesh(crest::IndexedMesh<double, int32_t> mesh)
     {
         const size_t num_vertex_entries = static_cast<size_t>(2 * mesh.num_vertices());
         const size_t num_element_entries = static_cast<size_t>(3 * mesh.num_elements());
 
         double * vertex_buffer = new double[num_vertex_entries];
-        int * index_buffer = new int[num_element_entries];
+        int32_t * index_buffer = new int32_t[num_element_entries];
 
         for (size_t v = 0; v < static_cast<size_t>(mesh.num_vertices()); ++v)
         {
