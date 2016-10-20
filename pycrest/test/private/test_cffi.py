@@ -1,7 +1,8 @@
-from pycrest.mesh import Mesh2d
-from pycrest.pycrest_cffi import _mesh_to_flat_mesh_data, _flat_mesh_data_to_mesh
 from numpy.testing import assert_array_almost_equal
 from numpy.testing import assert_array_equal
+
+from pycrest.mesh import Mesh2d
+from pycrest.private.cffi import _mesh_to_flat_mesh_data, _flat_mesh_data_to_mesh
 
 
 def test_mesh_flat_data_roundtrip():

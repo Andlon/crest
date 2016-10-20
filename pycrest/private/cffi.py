@@ -1,7 +1,7 @@
 import cffi
 import os
 import numpy as np
-from .mesh import Mesh2d
+from pycrest.mesh import Mesh2d
 
 _THIS_FILE_ABS_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -18,24 +18,32 @@ typedef struct flat_mesh_data
 void delete_flat_mesh_data(const flat_mesh_data * data);
 flat_mesh_data * bisect_to_tolerance(const flat_mesh_data * mesh_data, double tolerance);
 """)
-_crest = _ffi.dlopen(_THIS_FILE_ABS_DIR_PATH + "/../target/release/libpycrest.so")
+_crest = _ffi.dlopen(_THIS_FILE_ABS_DIR_PATH + "/../../target/release/libpycrest.so")
 
 
 def _mesh_to_flat_mesh_data(mesh):
-    vertices = np.ascontiguousarray(mesh.vertices, np.float64)
-    elements = np.ascontiguousarray(mesh.elements, np.int32)
+    """
+    Create an instance of flat_mesh_data from the given mesh for interopability with C.
 
-    # TODO: Fix the below mess! The below is not at all safe, because if vertices and elements are actually copies,
-    # they fall out of scope after the ffi cast, and in which case their data is no longer valid.
+    The returned instance is only valid as long as the mesh lives, as it does not copy the mesh data.
+    :param mesh:
+    :return: A CFFI struct of type flat_mesh_data
+    """
     data = _ffi.new("struct flat_mesh_data *")
     data.vertices_size = 2 * mesh.num_vertices
     data.elements_size = 3 * mesh.num_elements
-    data.vertices = _ffi.cast("double *", vertices.ctypes.data)
-    data.elements = _ffi.cast("int *", elements.ctypes.data)
+    # Here we use the fact that Mesh2d guarantees that the data is C-contiguous
+    data.vertices = _ffi.cast("double *", mesh.vertices.ctypes.data)
+    data.elements = _ffi.cast("int *", mesh.elements.ctypes.data)
     return data
 
 
 def _flat_mesh_data_to_mesh(data):
+    """
+    Construct a Mesh2d instance from the given flat_mesh_data.
+    :param data:
+    :return:
+    """
     num_vertices = int(data.vertices_size / 2)
     num_elements = int(data.elements_size / 3)
 

@@ -3,8 +3,9 @@ import numpy as np
 
 class Mesh2d:
     def __init__(self, vertices, elements):
-        self.__vertices = np.array(vertices)
-        self.__elements = np.array(elements)
+        # Ensure that the data is contiguous in C-order. This helps interopability with C
+        self.__vertices = np.array(vertices, dtype=np.float64, order='C')
+        self.__elements = np.array(elements, dtype=np.int32, order='C')
         self.__vertices.flags.writeable = False
         self.__elements.flags.writeable = False
         assert self.__vertices.ndim is 2
