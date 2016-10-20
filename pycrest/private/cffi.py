@@ -16,7 +16,14 @@ typedef struct flat_mesh_data
 } flat_mesh_data;
 
 void delete_flat_mesh_data(const flat_mesh_data * data);
+void delete_flat_mesh_data_array(const flat_mesh_data ** data_array, size_t size);
+
 flat_mesh_data * bisect_to_tolerance(const flat_mesh_data * mesh_data, double tolerance);
+flat_mesh_data ** threshold(const flat_mesh_data * initial_mesh,
+                           double tolerance,
+                           const int32_t * corner_indices,
+                           const double * corner_radians,
+                           size_t num_corners);
 """)
 _crest = _ffi.dlopen(_THIS_FILE_ABS_DIR_PATH + "/../../target/release/libpycrest.so")
 
@@ -61,3 +68,22 @@ def bisect_to_tolerance(initial_mesh, tolerance):
     mesh_result = _flat_mesh_data_to_mesh(flat_result)
     _crest.delete_flat_mesh_data(flat_result)
     return mesh_result
+
+
+def threshold(initial_mesh, tolerance, corner_indices, corner_radians):
+    corner_indices = np.array(corner_indices, dtype=np.int32, order='C')
+    corner_radians = np.array(corner_radians, dtype=np.float64, order='C')
+
+    assert (tolerance > 0)
+    assert (len(corner_indices) == len(corner_radians))
+    num_corners = len(corner_indices)
+
+    corner_indices_p = _ffi.cast("int32_t *", corner_indices.ctypes.data)
+    corner_radians_p = _ffi.cast("double *", corner_radians.ctypes.data)
+
+    flat_initial = _mesh_to_flat_mesh_data(initial_mesh)
+    flat_array = _crest.threshold(flat_initial, tolerance, corner_indices_p, corner_radians_p, num_corners)
+    coarse_mesh = _flat_mesh_data_to_mesh(flat_array[0])
+    fine_mesh = _flat_mesh_data_to_mesh(flat_array[1])
+    _crest.delete_flat_mesh_data_array(flat_array, 2)
+    return coarse_mesh, fine_mesh

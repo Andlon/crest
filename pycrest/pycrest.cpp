@@ -78,11 +78,42 @@ extern "C"
         return flat_data_from_mesh(std::move(mesh));
     }
 
+    flat_mesh_data ** threshold(const flat_mesh_data * initial_mesh,
+                                double tolerance,
+                                const int32_t * corner_indices,
+                                const double * corner_radians,
+                                size_t num_corners)
+    {
+        std::vector<crest::ReentrantCorner<double, int32_t>> corners;
+        for (size_t i = 0; i < num_corners; ++i)
+        {
+            corners.emplace_back(crest::ReentrantCorner<double, int32_t>(corner_indices[i], corner_radians[i]));
+        }
+
+        const auto two_scale = crest::threshold(mesh_from_flat_data(initial_mesh),
+                                                tolerance,
+                                                corners);
+
+        flat_mesh_data ** array = new flat_mesh_data * [2];
+        array[0] = flat_data_from_mesh(std::move(two_scale.coarse));
+        array[1] = flat_data_from_mesh(std::move(two_scale.fine));
+        return array;
+    }
+
     void delete_flat_mesh_data(const flat_mesh_data * data)
     {
         delete[] data->vertices;
         delete[] data->elements;
         delete data;
+    }
+
+    void delete_flat_mesh_data_array(const flat_mesh_data ** data_array, size_t size)
+    {
+        for (size_t i = 0; i < size; ++i)
+        {
+            delete_flat_mesh_data(data_array[i]);
+        }
+        delete[] data_array;
     }
 }
 

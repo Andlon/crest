@@ -16,6 +16,23 @@ extern "C"
     } flat_mesh_data;
 
     void delete_flat_mesh_data(const flat_mesh_data * data);
+    void delete_flat_mesh_data_array(const flat_mesh_data ** data_array, size_t size);
 
     flat_mesh_data * bisect_to_tolerance(const flat_mesh_data * mesh_data, double tolerance);
+
+    /**
+     * Refines the initial mesh in accordance with the Threshold algorithm.
+     * @param initial_mesh
+     * @param tolerance
+     * @param corner_indices
+     * @param corner_radians
+     * @param num_corners
+     * @return A two-element array of flat_mesh_data pointers.
+     *         Must be explicitly deleted with delete_flat_mesh_data_array.
+     */
+    flat_mesh_data ** threshold(const flat_mesh_data * initial_mesh,
+                               double tolerance,
+                               const int32_t * corner_indices,
+                               const double * corner_radians,
+                               size_t num_corners);
 }
