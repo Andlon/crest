@@ -46,12 +46,3 @@ set(PYCREST_SOURCES pycrest/pycrest.cpp)
 add_library(pycrest SHARED ${PYCREST_SOURCES})
 set_property(TARGET pycrest PROPERTY CXX_STANDARD 14)
 
-# Tools
-
-# Mesh - a tool to generate refinements from a starting triangulation
-set(MESH_SOURCES tools/mesh/main.cpp)
-
-add_executable(mesh ${MESH_SOURCES})
-target_include_directories(mesh PRIVATE external/json)
-set_property(TARGET mesh PROPERTY CXX_STANDARD 14)
-
