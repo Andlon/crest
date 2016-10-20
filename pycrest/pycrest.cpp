@@ -74,7 +74,7 @@ extern "C"
 {
     flat_mesh_data * bisect_to_tolerance(const flat_mesh_data * mesh_data, double tolerance)
     {
-        const auto mesh = crest::refine_to_tolerance(mesh_from_flat_data(mesh_data), tolerance);
+        const auto mesh = crest::bisect_to_tolerance(mesh_from_flat_data(mesh_data), tolerance);
         return flat_data_from_mesh(std::move(mesh));
     }
 

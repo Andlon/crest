@@ -30,7 +30,7 @@ namespace crest
 
 
     template <typename Scalar, typename Index>
-    inline IndexedMesh<Scalar, Index> refine_to_tolerance(IndexedMesh<Scalar, Index> mesh, Scalar tolerance)
+    inline IndexedMesh<Scalar, Index> bisect_to_tolerance(IndexedMesh<Scalar, Index> mesh, Scalar tolerance)
     {
         // Mark all elements whose diameters are too big, refine marked elements. Repeat until all elements
         // have sufficiently small diameters.

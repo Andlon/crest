@@ -59,7 +59,7 @@ protected:
 
 TEST_F(refinement_test, sufficiently_fine_mesh_is_unchanged)
 {
-    const auto mesh = crest::refine_to_tolerance(unit_square_2_elements, 2.0);
+    const auto mesh = crest::bisect_to_tolerance(unit_square_2_elements, 2.0);
 
     EXPECT_THAT(mesh.elements(), Pointwise(Eq(), unit_square_2_elements.elements()));
     EXPECT_THAT(mesh.vertices(), Pointwise(VertexDoubleEq(), unit_square_2_elements.vertices()));
@@ -69,7 +69,7 @@ TEST_F(refinement_test, sufficiently_fine_mesh_is_unchanged)
 
 TEST_F(refinement_test, expected_single_bisection)
 {
-    const auto mesh = crest::refine_to_tolerance(unit_square_2_elements, 1.1);
+    const auto mesh = crest::bisect_to_tolerance(unit_square_2_elements, 1.1);
 
     std::vector<Vertex> expected_vertices {
             Vertex(0.0, 0.0),
@@ -118,7 +118,7 @@ TEST_P(refinement_test_with_tolerance, all_elements_have_expected_diameter)
                                : 1.0 / pow(2.0, (n - 1.0) / 2.0);
     const double expected_diameter = upper_bound;
 
-    const auto mesh = crest::refine_to_tolerance(unit_square_2_elements, tolerance);
+    const auto mesh = crest::bisect_to_tolerance(unit_square_2_elements, tolerance);
     const auto diameters = compute_diameters(mesh);
 
     EXPECT_THAT(diameters.size(), mesh.num_elements());
