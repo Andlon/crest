@@ -89,11 +89,11 @@ namespace crest
         };
 
         template <typename Scalar>
-        Eigen::SparseMatrix<Scalar, Eigen::RowMajor> build_affine_interpolator_lhs_inverse(
+        Eigen::SparseMatrix<Scalar> build_affine_interpolator_lhs_inverse(
                 const IndexedMesh<Scalar, int> & coarse)
         {
             const auto num_dof_affine_space = 3 * coarse.num_elements();
-            Eigen::SparseMatrix<Scalar, Eigen::RowMajor> P(num_dof_affine_space, num_dof_affine_space);
+            Eigen::SparseMatrix<Scalar> P(num_dof_affine_space, num_dof_affine_space);
 
             // P will be block diagonal with 3x3 blocks, so we can reserve space in advance.
             P.reserve(Eigen::VectorXi::Constant(num_dof_affine_space, 3));
@@ -110,10 +110,11 @@ namespace crest
                 Eigen::Matrix<Scalar, 3, 3> P_local = determinant * P_ref.template cast<Scalar>();
                 P_local = P_local.inverse().eval();
 
-                for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
                 {
-                    for (int j = 0; j < 3; ++j)
+                    for (int i = 0; i < 3; ++i)
                     {
+
                         const auto row = 3 * t + i;
                         const auto col = 3 * t + j;
                         P.insert(row, col) = P_local(i, j);
