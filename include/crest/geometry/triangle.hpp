@@ -45,4 +45,12 @@ namespace crest
         return sqrt(distance_squared(triangle, point));
     }
 
+    template <typename T>
+    inline T area(const Triangle<T> & triangle)
+    {
+        const auto ac = triangle.c - triangle.a;
+        const auto ab = triangle.b - triangle.a;
+        return abs(cross(ac, ab)) / 2.0;
+    }
+
 }
