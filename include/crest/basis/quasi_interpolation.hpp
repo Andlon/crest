@@ -93,7 +93,7 @@ namespace crest
             Eigen::SparseMatrix<Scalar, Eigen::RowMajor> P(num_dof_affine_space, num_dof_affine_space);
 
             // P will be block diagonal with 3x3 blocks, so we can reserve space in advance.
-            P.reserve(VectorX<Scalar>::Constant(num_dof_affine_space, 3));
+            P.reserve(Eigen::VectorXi::Constant(num_dof_affine_space, 3));
 
             Eigen::Matrix<Scalar, 3, 3> P_ref;
             P_ref << 2.0 / 24.0, 1.0 / 24.0, 1.0 / 24.0,
@@ -137,6 +137,55 @@ namespace crest
             const Eigen::SparseMatrix<Scalar, Eigen::RowMajor> B = build_affine_interpolator_rhs(coarse, fine);
             const Eigen::SparseMatrix<Scalar, Eigen::RowMajor> P = build_affine_interpolator_lhs_inverse(coarse);
             return P * B;
+        };
+
+        template <typename Scalar>
+        std::vector<unsigned int> count_vertex_occurrences(const IndexedMesh<Scalar, int> & mesh)
+        {
+            auto count = std::vector<unsigned int>(mesh.num_vertices(), static_cast<Scalar>(0));
+            for (const auto & element : mesh.elements())
+            {
+                for (const auto & v : element.vertex_indices)
+                {
+                    ++count[v];
+                }
+            }
+            return count;
+        }
+
+        /**
+         * Given a triangulation T, returns a matrix of dimensions N(T) x [3 * card(T)] which maps functions in the
+         * (possibly discontinuous) affine space P_1 to functions in the standard linear finite element space
+         * on the mesh.
+         * Here, N(T) denotes the number of vertices in T, and card(T) denotes the number of elements in T.
+         * @param mesh
+         * @return
+         */
+        template <typename Scalar>
+        Eigen::SparseMatrix<Scalar> nodal_average_interpolator(const IndexedMesh<Scalar, int> & mesh)
+        {
+            const auto occurrences = count_vertex_occurrences(mesh);
+
+            // Reserve space for 1 non-zero per column, since each basis function in the affine space
+            // maps to exactly one vertex in the standard finite element space.
+            const auto num_dof_affine_space = 3 * mesh.num_elements();
+            Eigen::SparseMatrix<Scalar> J(mesh.num_vertices(), num_dof_affine_space);
+            J.reserve(Eigen::VectorXi::Constant(num_dof_affine_space, 1));
+
+            for (int t = 0; t < mesh.num_elements(); ++t)
+            {
+                const auto vertices = mesh.elements()[t].vertex_indices;
+
+                for (size_t v = 0; v < 3; ++v)
+                {
+                    const auto col = 3 * t + v;
+                    const auto vertex_index = vertices[v];
+                    const auto cardinality = occurrences[vertex_index];
+                    J.insert(vertex_index, col) = static_cast<Scalar>(1.0) / static_cast<Scalar>(cardinality);
+                }
+            }
+
+            return J;
         };
     }
 
