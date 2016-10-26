@@ -189,4 +189,13 @@ namespace crest
         };
     }
 
+    template <typename Scalar>
+    Eigen::SparseMatrix<Scalar> quasi_interpolator(const IndexedMesh<Scalar, int> & coarse,
+                                                   const IndexedMesh<Scalar, int> & fine)
+    {
+        const auto P = detail::affine_interpolator(coarse, fine);
+        const auto J = detail::nodal_average_interpolator(coarse);
+        return J * P;
+    }
+
 }

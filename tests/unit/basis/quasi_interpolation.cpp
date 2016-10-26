@@ -87,3 +87,29 @@ TEST(nodal_average_interpolator_test, minimal_mesh)
     EXPECT_THAT(standard_weights(2), DoubleEq(3.0));
     EXPECT_THAT(standard_weights(3), DoubleEq(5.0));
 }
+
+TEST(quasi_interpolator, verify_successful_compilation)
+{
+    const std::vector<Vertex> coarse_vertices {
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0)
+    };
+
+    const std::vector<Element> coarse_elements {
+            Element({3, 0, 1}),
+            Element({1, 2, 3})
+    };
+
+    const auto coarse_mesh = IndexedMesh(coarse_vertices, coarse_elements);
+    const auto fine_mesh = crest::bisect_to_tolerance(coarse_mesh, 1.1);
+
+    ASSERT_THAT(fine_mesh.num_vertices(), Eq(5));
+    ASSERT_THAT(fine_mesh.num_elements(), Eq(4));
+    ASSERT_THAT(fine_mesh.vertices()[4], VertexDoubleEq(Vertex(0.5, 0.5)));
+
+    const auto I_H = crest::quasi_interpolator(coarse_mesh, fine_mesh);
+    EXPECT_THAT(I_H.rows(), Eq(coarse_mesh.num_vertices()));
+    EXPECT_THAT(I_H.cols(), Eq(fine_mesh.num_vertices()));
+}
