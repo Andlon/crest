@@ -12,7 +12,6 @@ namespace crest
 {
     namespace detail
     {
-
         template <typename Scalar>
         Eigen::Matrix<Scalar, 3, 3> basis_coefficients_for_triangle(const Triangle<Scalar> & triangle)
         {
@@ -35,12 +34,11 @@ namespace crest
          * @return
          */
         template <typename Scalar>
-        Eigen::SparseMatrix<Scalar, Eigen::RowMajor> build_affine_interpolator_rhs(
+        Eigen::SparseMatrix<Scalar> build_affine_interpolator_rhs(
                 const IndexedMesh<Scalar, int> & coarse,
                 const IndexedMesh<Scalar, int> & fine)
         {
-            const auto num_dof_affine_space = 3 * coarse.num_elements();
-            Eigen::SparseMatrix<Scalar, Eigen::RowMajor> B(num_dof_affine_space, fine.num_vertices());
+            std::vector<Eigen::Triplet<Scalar>> triplets;
 
             for (int t = 0; t < coarse.num_elements(); ++t)
             {
@@ -60,10 +58,10 @@ namespace crest
                             const auto vertex_indices = fine.elements()[k].vertex_indices;
                             const auto fine_triangle = fine.triangle_for(k);
                             const Eigen::Matrix<Scalar, 3, 3> fine_coeff = basis_coefficients_for_triangle(fine_triangle);
+
                             for (size_t j = 0; j < 3; ++j)
                             {
                                 const auto vertex_index = vertex_indices[j];
-                                // TODO: Construct matrix by triplets instead?
                                 const auto product = [&] (auto x, auto y)
                                 {
                                     const auto coarse_basis_value =
@@ -72,16 +70,21 @@ namespace crest
                                             fine_coeff(0, j) * x + fine_coeff(1, j) * y + fine_coeff(2, j);
                                     return coarse_basis_value * fine_basis_value;
                                 };
-                                B.coeffRef(3 * t + i, vertex_index) += triquad<2>(product,
-                                                                                  fine_triangle.a,
-                                                                                  fine_triangle.b,
-                                                                                  fine_triangle.c);
+                                const auto inner_product = triquad<2>(product,
+                                                                      fine_triangle.a,
+                                                                      fine_triangle.b,
+                                                                      fine_triangle.c);
+                                const auto row = 3 * t + i;
+                                triplets.push_back(Eigen::Triplet<Scalar>(row, vertex_index, inner_product));
                             }
                         }
                     }
                 }
             }
 
+            const auto num_dof_affine_space = 3 * coarse.num_elements();
+            Eigen::SparseMatrix<Scalar> B(num_dof_affine_space, fine.num_vertices());
+            B.setFromTriplets(triplets.cbegin(), triplets.cend());
             return B;
         };
 
