@@ -129,10 +129,10 @@ namespace crest
          * @param fine
          * @return
          */
-        template <typename Scalar, typename Index>
+        template <typename Scalar>
         Eigen::SparseMatrix<Scalar, Eigen::RowMajor> affine_interpolator(
-                const IndexedMesh<Scalar, Index> & coarse,
-                const IndexedMesh<Scalar, Index> & fine)
+                const IndexedMesh<Scalar, int> & coarse,
+                const IndexedMesh<Scalar, int> & fine)
         {
             const Eigen::SparseMatrix<Scalar, Eigen::RowMajor> B = build_affine_interpolator_rhs(coarse, fine);
             const Eigen::SparseMatrix<Scalar, Eigen::RowMajor> P = build_affine_interpolator_lhs_inverse(coarse);
