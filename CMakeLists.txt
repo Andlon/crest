@@ -9,6 +9,7 @@ set(UNIT_TEST_SOURCES
         tests/unit/util/vertex_matchers.cpp
         tests/unit/quadrature/triquad.cpp
         tests/unit/basis/linear_lagrangian_basis.cpp
+        tests/unit/basis/quasi_interpolation.cpp
         tests/unit/util/eigen_extensions.cpp
         tests/unit/geometry/refinement.cpp
         tests/unit/quadrature/simpsons.cpp
