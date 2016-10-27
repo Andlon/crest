@@ -9,6 +9,9 @@
 template <typename Scalar>
 using VectorX = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 
+template <typename Scalar>
+using MatrixX = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
+
 template <typename Scalar, typename Index>
 Index max_nnz_in_cols(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix)
 {
