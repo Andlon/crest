@@ -78,7 +78,7 @@ namespace crest
      * IMPLEMENTATION BELOW
      */
 
-    detail::assembly_triplets detail::assemble_linear_lagrangian_stiffness_triplets(
+    inline detail::assembly_triplets detail::assemble_linear_lagrangian_stiffness_triplets(
             const crest::IndexedMesh<double, int> &mesh)
     {
         const static Eigen::Matrix3d M_LOCAL_REF = (1.0 / 24.0) * (Eigen::Matrix3d()
@@ -150,7 +150,7 @@ namespace crest
         };
     }
 
-    LagrangeBasis2d LagrangeBasis2d::assemble_from_mesh(IndexedMesh<double, int> mesh)
+    inline LagrangeBasis2d LagrangeBasis2d::assemble_from_mesh(IndexedMesh<double, int> mesh)
     {
         const auto triplets = detail::assemble_linear_lagrangian_stiffness_triplets(mesh);
 
