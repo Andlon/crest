@@ -16,8 +16,7 @@ namespace crest
     namespace detail
     {
         template <typename Scalar, typename Index>
-        std::vector<Index> fine_patch_from_coarse(const IndexedMesh<Scalar, Index> & coarse,
-                                                  const IndexedMesh<Scalar, Index> & fine,
+        std::vector<Index> fine_patch_from_coarse(const IndexedMesh<Scalar, Index> & fine,
                                                   const std::vector<Index> & coarse_patch)
         {
             std::vector<Index> fine_patch;
@@ -33,7 +32,7 @@ namespace crest
                 }
             }
             std::sort(fine_patch.begin(), fine_patch.end());
-            fine_patch.erase(std::unique(fine_patch.begin(), fine_patch.end()));
+            fine_patch.erase(std::unique(fine_patch.begin(), fine_patch.end()), fine_patch.end());
             return fine_patch;
         }
 
@@ -50,7 +49,8 @@ namespace crest
                 std::copy(vertices.cbegin(), vertices.cend(), std::back_inserter(vertices_in_patch));
             }
             std::sort(vertices_in_patch.begin(), vertices_in_patch.end());
-            vertices_in_patch.erase(std::unique(vertices_in_patch.begin(), vertices_in_patch.end()));
+            vertices_in_patch.erase(std::unique(vertices_in_patch.begin(), vertices_in_patch.end()),
+                                    vertices_in_patch.end());
             return vertices_in_patch;
         };
 
@@ -68,7 +68,7 @@ namespace crest
 
                 const auto edge_has_neighbor_in_patch = [&] (auto edge_index)
                 {
-                    const auto neighbor = edge_index;
+                    const auto neighbor = neighbors[edge_index];
                     return std::binary_search(patch.cbegin(), patch.cend(), neighbor);
                 };
 
@@ -90,7 +90,7 @@ namespace crest
                 }
             }
             std::sort(interior.begin(), interior.end());
-            interior.erase(std::unique(interior.begin(), interior.end()));
+            interior.erase(std::unique(interior.begin(), interior.end()), interior.end());
             return interior;
         }
 
@@ -198,7 +198,7 @@ namespace crest
             }
 
             Eigen::SparseMatrix<Scalar> C(A.rows() + I_H.rows(), A.cols() + I_H.rows());
-            C.setFromTriplets(triplets);
+            C.setFromTriplets(triplets.cbegin(), triplets.cend());
 
             VectorX<Scalar> c(A.rows() + I_H.rows());
             c.setZero();
@@ -223,7 +223,7 @@ namespace crest
 
             // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
             // we extract x as the corrector.
-            return solution.topRows(A.row());
+            return solution.topRows(A.rows());
         }
 
         template <typename Scalar>
@@ -260,7 +260,7 @@ namespace crest
 
             // In addition to the above, we'll use a compact SVD when reconstructing to reduce the work required.
             const auto U_r = svd.matrixU().topLeftCorner(r, r);
-            const auto S_r = svd.singularValues().asDiagonal();
+            const auto S_r = svd.singularValues().topRows(r).asDiagonal();
             const auto V_r = svd.matrixV().topRows(r);
 
             const MatrixX<Scalar> I_H_reduced = U_r * S_r * V_r.transpose();
@@ -281,7 +281,7 @@ namespace crest
             assert(coarse_element >= 0 && coarse_element < coarse.num_elements());
 
             const auto coarse_patch = patch_for_element(coarse, coarse_element, oversampling);
-            const auto fine_patch = fine_patch_from_coarse(coarse, fine, coarse_patch);
+            const auto fine_patch = fine_patch_from_coarse(fine, coarse_patch);
             const auto fine_patch_interior = patch_interior(fine, fine_patch);
 
             const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
@@ -294,8 +294,8 @@ namespace crest
             const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
-            const auto global_index = coarse.elements()[local_index].vertex_indices;
-            for (int k = 0; k < fine_patch_interior.size(); ++k)
+            const auto global_index = coarse.elements()[local_index].vertex_indices[local_index];
+            for (size_t k = 0; k < fine_patch_interior.size(); ++k)
             {
                 triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
             }
@@ -318,13 +318,13 @@ namespace crest
             std::vector<Eigen::Triplet<Scalar>> basis_triplets;
             for (int t = 0; t < coarse.num_elements(); ++t)
             {
-                const auto vertices = coarse.elements()[t].vertex_indices;
                 for (size_t i = 0; i < 3; ++i)
                 {
                     const auto corrector_contributions = compute_element_corrector_for_node(coarse,
                                                                                             fine,
                                                                                             A,
-                                                                                            I_H, t,
+                                                                                            I_H,
+                                                                                            t,
                                                                                             i,
                                                                                             oversampling);
                     std::copy(corrector_contributions.cbegin(),
@@ -334,7 +334,7 @@ namespace crest
             }
 
             Eigen::SparseMatrix<Scalar> basis(coarse.num_vertices(), fine.num_vertices());
-            basis.setFromTriplets(basis_triplets);
+            basis.setFromTriplets(basis_triplets.cbegin(), basis_triplets.cend());
             return basis;
         }
     }
