@@ -122,23 +122,17 @@ namespace crest {
                 return !std::binary_search(patch.cbegin(), patch.cend(), neighbor);
             };
 
-            // Recall that for a triangle (z0, z1, z2), the neighbors are defined as the neighboring triangle
-            // associated with edges (z0, z1), (z1, z2), (z2, z0).
-            if (edge_is_on_patch_boundary(2) || edge_is_on_patch_boundary(0))
+            for (size_t e = 0; e < 3; ++e)
             {
-                boundary.push_back(vertices[0]);
-            }
-
-            if (edge_is_on_patch_boundary(0) || edge_is_on_patch_boundary(1))
-            {
-                boundary.push_back(vertices[1]);
-            }
-
-            if (edge_is_on_patch_boundary(1) || edge_is_on_patch_boundary(2))
-            {
-                boundary.push_back(vertices[2]);
+                if (edge_is_on_patch_boundary(e))
+                {
+                    // Denote the edge as (a, b). If the edge is on the boundary, then a and b are boundary vertices
+                    boundary.push_back(vertices[e]);
+                    boundary.push_back(vertices[(e + 1) % 3]);
+                }
             }
         }
+
         patch_vertices = algo::sorted_unique(std::move(patch_vertices));
         boundary = algo::sorted_unique(std::move(boundary));
         std::vector<Index> interior;
