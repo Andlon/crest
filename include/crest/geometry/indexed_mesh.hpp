@@ -248,7 +248,12 @@ namespace crest {
                 _neighbors(detail::find_neighbors(static_cast<I>(_vertices.size()), _elements))
     {
         _boundary = detail::determine_new_boundary_vertices(*this);
-        _ancestors = std::vector<I>(num_elements(), sentinel());
+        _ancestors.reserve(num_elements());
+        for (I i = 0; i < num_elements(); ++i)
+        {
+            // Make every triangle an ancestor of itself
+            _ancestors.push_back(i);
+        }
     }
 
     template <typename T, typename I>
@@ -309,8 +314,10 @@ namespace crest {
     template <typename T, typename I>
     inline void IndexedMesh<T, I>::reset_ancestry()
     {
-        std::transform(_ancestors.begin(), _ancestors.end(), _ancestors.begin(),
-                       [] (auto) { return IndexedMesh<T, I>::sentinel(); });
+        for (I t = 0; t < num_elements(); ++t)
+        {
+            _ancestors[t] = t;
+        }
     }
 
     template <typename T, typename I>

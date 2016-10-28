@@ -247,20 +247,18 @@ TEST_F(indexed_mesh_test, interior_for_unit_square_1_interior_node)
 
 TEST_F(indexed_mesh_test, ancestors_for_unit_square) {
     const auto mesh = IndexedMesh<>(vertices_unit_square, elements_unit_square);
-    const auto NO_ANCESTOR = mesh.sentinel();
 
-    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(1u));
 }
 
 TEST_F(indexed_mesh_test, ancestors_for_diamond) {
     const auto mesh = IndexedMesh<>(vertices_diamond, elements_diamond);
-    const auto NO_ANCESTOR = mesh.sentinel();
 
-    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(2), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(3), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh.ancestor_for(2), Eq(2u));
+    EXPECT_THAT(mesh.ancestor_for(3), Eq(3u));
 }
 
 TEST_F(indexed_mesh_test, reset_ancestry) {
@@ -277,7 +275,6 @@ TEST_F(indexed_mesh_test, reset_ancestry) {
     };
 
     auto mesh = IndexedMesh<>(vertices, elements);
-    const auto NO_ANCESTOR = mesh.sentinel();
     mesh.bisect_marked({0, 1});
     EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
     EXPECT_THAT(mesh.ancestor_for(1), Eq(1u));
@@ -286,10 +283,10 @@ TEST_F(indexed_mesh_test, reset_ancestry) {
 
     mesh.reset_ancestry();
 
-    EXPECT_THAT(mesh.ancestor_for(0), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(1), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(2), Eq(NO_ANCESTOR));
-    EXPECT_THAT(mesh.ancestor_for(3), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh.ancestor_for(0), Eq(0u));
+    EXPECT_THAT(mesh.ancestor_for(1), Eq(1u));
+    EXPECT_THAT(mesh.ancestor_for(2), Eq(2u));
+    EXPECT_THAT(mesh.ancestor_for(3), Eq(3u));
 }
 
 TEST_F(indexed_mesh_refine_marked_test, single_triangle)
@@ -459,7 +456,6 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     mesh_both_refined.bisect_marked({0, 1});
 
     const auto NO_NEIGHBOR = IndexedMesh<>::sentinel();
-    const auto NO_ANCESTOR = NO_NEIGHBOR;
     EXPECT_THAT(mesh_0_refined.vertices(), Pointwise(VertexDoubleEq(), expected_vertices_0_refined));
     EXPECT_THAT(mesh_0_refined.elements(), Pointwise(Eq(), expected_elements_0_refined));
     EXPECT_THAT(mesh_0_refined.boundary_vertices(), ElementsAreArray({0, 1, 2, 3, 5}));
@@ -480,7 +476,7 @@ TEST_F(indexed_mesh_refine_marked_test, two_triangles_without_shared_refinement_
     EXPECT_THAT(mesh_1_refined.neighbors_for(0), ElementsAre(NO_NEIGHBOR, NO_NEIGHBOR, 2));
     EXPECT_THAT(mesh_1_refined.neighbors_for(1), ElementsAre(2, NO_NEIGHBOR, NO_NEIGHBOR));
     EXPECT_THAT(mesh_1_refined.neighbors_for(2), ElementsAre(NO_NEIGHBOR, 1, 0));
-    EXPECT_THAT(mesh_1_refined.ancestor_for(0), Eq(NO_ANCESTOR));
+    EXPECT_THAT(mesh_1_refined.ancestor_for(0), Eq(0u));
     EXPECT_THAT(mesh_1_refined.ancestor_for(1), Eq(1u));
     EXPECT_THAT(mesh_1_refined.ancestor_for(2), Eq(1u));
 
