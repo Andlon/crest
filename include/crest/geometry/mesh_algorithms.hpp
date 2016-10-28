@@ -8,6 +8,7 @@
 #include <limits>
 
 #include <crest/geometry/indexed_mesh.hpp>
+#include <crest/util/algorithms.hpp>
 
 namespace crest {
 
@@ -105,37 +106,45 @@ namespace crest {
     {
         assert(std::is_sorted(patch.cbegin(), patch.cend()));
 
-        std::vector<Index> interior;
+        std::vector<Index> patch_vertices;
+        std::vector<Index> boundary;
+        patch_vertices.reserve(3 * patch.size());
+
         for (const auto t : patch)
         {
             const auto neighbors = mesh.neighbors_for(t);
             const auto vertices = mesh.elements()[t].vertex_indices;
+            std::copy(vertices.begin(), vertices.end(), std::back_inserter(patch_vertices));
 
-            const auto edge_has_neighbor_in_patch = [&] (auto edge_index)
+            const auto edge_is_on_patch_boundary = [&] (auto edge_index)
             {
                 const auto neighbor = neighbors[edge_index];
-                return std::binary_search(patch.cbegin(), patch.cend(), neighbor);
+                return !std::binary_search(patch.cbegin(), patch.cend(), neighbor);
             };
 
             // Recall that for a triangle (z0, z1, z2), the neighbors are defined as the neighboring triangle
             // associated with edges (z0, z1), (z1, z2), (z2, z0).
-            if (edge_has_neighbor_in_patch(2) && edge_has_neighbor_in_patch(0))
+            if (edge_is_on_patch_boundary(2) || edge_is_on_patch_boundary(0))
             {
-                interior.push_back(vertices[0]);
+                boundary.push_back(vertices[0]);
             }
 
-            if (edge_has_neighbor_in_patch(0) && edge_has_neighbor_in_patch(1))
+            if (edge_is_on_patch_boundary(0) || edge_is_on_patch_boundary(1))
             {
-                interior.push_back(vertices[1]);
+                boundary.push_back(vertices[1]);
             }
 
-            if (edge_has_neighbor_in_patch(1) && edge_has_neighbor_in_patch(2))
+            if (edge_is_on_patch_boundary(1) || edge_is_on_patch_boundary(2))
             {
-                interior.push_back(vertices[2]);
+                boundary.push_back(vertices[2]);
             }
         }
-        std::sort(interior.begin(), interior.end());
-        interior.erase(std::unique(interior.begin(), interior.end()), interior.end());
+        patch_vertices = algo::sorted_unique(std::move(patch_vertices));
+        boundary = algo::sorted_unique(std::move(boundary));
+        std::vector<Index> interior;
+        std::set_difference(patch_vertices.cbegin(), patch_vertices.cend(),
+                            boundary.cbegin(), boundary.cend(),
+                            std::back_inserter(interior));
         return interior;
     }
 

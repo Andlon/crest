@@ -12,6 +12,14 @@ namespace crest {
             return std::find(c.begin(), c.end(), element) != c.end();
         };
 
+        template <typename Container>
+        Container sorted_unique(Container c)
+        {
+            std::sort(c.begin(), c.end());
+            c.erase(std::unique(c.begin(), c.end()), c.end());
+            return c;
+        }
+
         template <typename Integer, typename ForwardIt>
         void fill_strided_integers(ForwardIt begin, ForwardIt end, Integer start = 0, Integer stride = 1)
         {
