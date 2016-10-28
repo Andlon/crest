@@ -310,8 +310,10 @@ namespace crest
         {
             const auto I_H = quasi_interpolator(coarse, fine);
 
-            // TODO: Use proper stiffness matrix from fine space
-            const Eigen::SparseMatrix<Scalar> A;
+            // TODO: Rewrite LagrangeBasis2d so that we can reuse its functionality instead of this workaround
+            const auto assembly = assemble_linear_lagrangian_stiffness_triplets(fine);
+            Eigen::SparseMatrix<Scalar> A(fine.num_vertices(), fine.num_vertices());
+            A.setFromTriplets(assembly.stiffness_triplets.cbegin(), assembly.stiffness_triplets.cend());
 
             std::vector<Eigen::Triplet<Scalar>> basis_triplets;
             for (int t = 0; t < coarse.num_elements(); ++t)
