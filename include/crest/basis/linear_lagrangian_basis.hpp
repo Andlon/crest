@@ -56,13 +56,15 @@ namespace crest
 
     namespace detail
     {
+        template <typename Scalar>
         struct assembly_triplets {
-            std::vector<Eigen::Triplet<double>> stiffness_triplets;
-            std::vector<Eigen::Triplet<double>> mass_triplets;
+            std::vector<Eigen::Triplet<Scalar>> stiffness_triplets;
+            std::vector<Eigen::Triplet<Scalar>> mass_triplets;
         };
 
-        assembly_triplets assemble_linear_lagrangian_stiffness_triplets(
-                const crest::IndexedMesh<double, int> &mesh);
+        template <typename Scalar>
+        assembly_triplets<Scalar> assemble_linear_lagrangian_stiffness_triplets(
+                const crest::IndexedMesh<Scalar, int> &mesh);
 
         struct interior_boundary_matrices {
             Eigen::SparseMatrix<double> interior_matrix;
@@ -78,39 +80,40 @@ namespace crest
      * IMPLEMENTATION BELOW
      */
 
-    inline detail::assembly_triplets detail::assemble_linear_lagrangian_stiffness_triplets(
-            const crest::IndexedMesh<double, int> &mesh)
+    template <typename Scalar>
+    detail::assembly_triplets<Scalar> detail::assemble_linear_lagrangian_stiffness_triplets(
+            const crest::IndexedMesh<Scalar, int> &mesh)
     {
-        const static Eigen::Matrix3d M_LOCAL_REF = (1.0 / 24.0) * (Eigen::Matrix3d()
+        const static Eigen::Matrix<Scalar, 3, 3> M_LOCAL_REF = (1.0 / 24.0) * (Eigen::Matrix3d()
                 <<
                 2.0, 1.0, 1.0,
                 1.0, 2.0, 1.0,
                 1.0, 1.0, 2.0
-        ).finished();
+        ).finished().cast<Scalar>();
 
-        const static Eigen::Matrix3d A11 = (1.0 / 2.0) * (Eigen::Matrix3d()
+        const static Eigen::Matrix<Scalar, 3, 3> A11 = (1.0 / 2.0) * (Eigen::Matrix3d()
                 <<
                 1.0, 0.0, -1.0,
                 0.0, 0.0, 0.0,
                 -1.0, 0.0, 1.0
-        ).finished();
+        ).finished().cast<Scalar>();
 
-        const static Eigen::Matrix3d A12 = (1.0 / 2.0) * (Eigen::Matrix3d()
+        const static Eigen::Matrix<Scalar, 3, 3> A12 = (1.0 / 2.0) * (Eigen::Matrix3d()
                 <<
                 0.0, 1.0, -1.0,
                 1.0, 0.0, -1.0,
                 -1.0, -1.0, 2.0
-        ).finished();
+        ).finished().cast<Scalar>();
 
-        const static Eigen::Matrix3d A22 = (1.0 / 2.0) * (Eigen::Matrix3d()
+        const static Eigen::Matrix<Scalar, 3, 3> A22 = (1.0 / 2.0) * (Eigen::Matrix3d()
                 <<
                 0.0, 0.0, 0.0,
                 0.0, 1.0, -1.0,
                 0.0, -1.0, 1.0
-        ).finished();
+        ).finished().cast<Scalar>();
 
-        std::vector<Eigen::Triplet<double>> mass_triplets;
-        std::vector<Eigen::Triplet<double>> stiffness_triplets;
+        std::vector<Eigen::Triplet<Scalar>> mass_triplets;
+        std::vector<Eigen::Triplet<Scalar>> stiffness_triplets;
         mass_triplets.reserve(3 * mesh.num_elements());
         stiffness_triplets.reserve(3 * mesh.num_elements());
 
@@ -128,10 +131,10 @@ namespace crest
             const Eigen::Matrix2d C = jacobian_inverse * jacobian_inverse.transpose();
             const auto abs_det_jacobian = std::abs(jacobian.determinant());
 
-            const Eigen::Matrix3d A_local = abs_det_jacobian * (C(0, 0) * A11 + C(0, 1) * A12 + C(1, 1) * A22);
-            const Eigen::Matrix3d M_local = abs_det_jacobian * M_LOCAL_REF;
+            const Eigen::Matrix<Scalar, 3, 3> A_local = abs_det_jacobian * (C(0, 0) * A11 + C(0, 1) * A12 + C(1, 1) * A22);
+            const Eigen::Matrix<Scalar, 3, 3> M_local = abs_det_jacobian * M_LOCAL_REF;
 
-            typedef Eigen::Triplet<double> T;
+            typedef Eigen::Triplet<Scalar> T;
             for (size_t i = 0; i < 3; ++i)
             {
                 for (size_t j = 0; j < 3; ++j)
@@ -144,7 +147,7 @@ namespace crest
             }
         }
 
-        return detail::assembly_triplets {
+        return detail::assembly_triplets<Scalar> {
                 std::move(stiffness_triplets),
                 std::move(mass_triplets)
         };
