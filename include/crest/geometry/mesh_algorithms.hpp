@@ -81,4 +81,62 @@ namespace crest {
         return std::vector<Index>(patch.begin(), patch.end());
     };
 
+    template <typename Scalar, typename Index>
+    std::vector<Index> patch_vertices(const IndexedMesh<Scalar, Index> & mesh,
+                                      const std::vector<Index> & patch)
+    {
+        assert(std::is_sorted(patch.cbegin(), patch.cend()));
+        std::vector<Index> vertices_in_patch;
+        vertices_in_patch.reserve(3 * patch.size());
+        for (const auto t : patch)
+        {
+            const auto vertices = mesh.elements()[t].vertex_indices;
+            std::copy(vertices.cbegin(), vertices.cend(), std::back_inserter(vertices_in_patch));
+        }
+        std::sort(vertices_in_patch.begin(), vertices_in_patch.end());
+        vertices_in_patch.erase(std::unique(vertices_in_patch.begin(), vertices_in_patch.end()),
+                                vertices_in_patch.end());
+        return vertices_in_patch;
+    };
+
+    template <typename Scalar, typename Index>
+    std::vector<Index> patch_interior(const IndexedMesh<Scalar, Index> & mesh,
+                                      const std::vector<Index> & patch)
+    {
+        assert(std::is_sorted(patch.cbegin(), patch.cend()));
+
+        std::vector<Index> interior;
+        for (const auto t : patch)
+        {
+            const auto neighbors = mesh.neighbors_for(t);
+            const auto vertices = mesh.elements()[t].vertex_indices;
+
+            const auto edge_has_neighbor_in_patch = [&] (auto edge_index)
+            {
+                const auto neighbor = neighbors[edge_index];
+                return std::binary_search(patch.cbegin(), patch.cend(), neighbor);
+            };
+
+            // Recall that for a triangle (z0, z1, z2), the neighbors are defined as the neighboring triangle
+            // associated with edges (z0, z1), (z1, z2), (z2, z0).
+            if (edge_has_neighbor_in_patch(2) && edge_has_neighbor_in_patch(0))
+            {
+                interior.push_back(vertices[0]);
+            }
+
+            if (edge_has_neighbor_in_patch(0) && edge_has_neighbor_in_patch(1))
+            {
+                interior.push_back(vertices[1]);
+            }
+
+            if (edge_has_neighbor_in_patch(1) && edge_has_neighbor_in_patch(2))
+            {
+                interior.push_back(vertices[2]);
+            }
+        }
+        std::sort(interior.begin(), interior.end());
+        interior.erase(std::unique(interior.begin(), interior.end()), interior.end());
+        return interior;
+    }
+
 }
