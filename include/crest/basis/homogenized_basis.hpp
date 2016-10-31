@@ -102,7 +102,7 @@ namespace crest
         }
 
         template <typename Scalar>
-        std::pair<Eigen::SparseMatrix<Scalar>, VectorX<Scalar>> construct_constrained_problem(
+        std::pair<Eigen::SparseMatrix<Scalar>, VectorX<Scalar>> construct_saddle_point_problem(
                 const Eigen::SparseMatrix<Scalar> & A,
                 const Eigen::SparseMatrix<Scalar> & I_H,
                 const VectorX<Scalar> & b)
@@ -123,19 +123,19 @@ namespace crest
             // Constructing the C matrix with triplets is not the most efficient way, but it is
             // fairly simple and probably still relatively efficient.
             std::vector<Eigen::Triplet<Scalar>> triplets;
-            for (int r = 0; r < A.rows(); ++r)
+            for (int i = 0; i < A.rows(); ++i)
             {
-                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(A, r); it; ++it)
+                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(A, i); it; ++it)
                 {
                     triplets.push_back(Eigen::Triplet<Scalar>(it.row(), it.col(), it.value()));
                 }
             }
 
-            for (int r = 0; r < I_H.rows(); ++r)
+            for (int i = 0; i < I_H.rows(); ++i)
             {
-                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(I_H, r); it; ++it)
+                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(I_H, i); it; ++it)
                 {
-                    const auto row = r + A.rows();
+                    const auto row = it.row() + A.rows();
                     const auto col = it.col();
                     triplets.push_back(Eigen::Triplet<Scalar>(row, col, it.value()));
                     // Also add the transposed element, to bring I_H^T to the top-right corner
@@ -158,14 +158,17 @@ namespace crest
                                                           const Eigen::SparseMatrix<Scalar> & I_H,
                                                           const VectorX<Scalar> & b)
         {
-            const auto constrained_problem = construct_constrained_problem(A, I_H, b);
+            const auto constrained_problem = construct_saddle_point_problem(A, I_H, b);
             const auto C = constrained_problem.first;
             const auto c = constrained_problem.second;
+            VectorX<Scalar> solution(C.rows());
 
+            // Note: This _may_ run out of memory if I_H is dense (which is the case when using the exact SVD approach)
             Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
             solver.analyzePattern(C);
             solver.factorize(C);
-            VectorX<Scalar> solution(C.rows());
+            assert(solver.info() == Eigen::Success);
+            solution = solver.solve(c);
 
             // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
             // we extract x as the corrector.
@@ -201,7 +204,8 @@ namespace crest
             // where U_r corresponds to the r first rows of U.
             // As it turns out, ker(I_H_reduced) = ker(I_H_local), and I_H_reduced has full row rank.
             // which means we can replace I_H_local with I_H_reduced in the saddle point formulation.
-            const Eigen::JacobiSVD<MatrixX<Scalar>> svd(I_H_local, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            const Eigen::JacobiSVD<MatrixX<Scalar>> svd(MatrixX<Scalar>(I_H_local),
+                                                        Eigen::ComputeThinU | Eigen::ComputeThinV);
             const auto r = svd.rank();
 
             // In addition to the above, we'll use a compact SVD when reconstructing to reduce the work required.
@@ -210,6 +214,8 @@ namespace crest
             const auto V_r = svd.matrixV().leftCols(r);
 
             const MatrixX<Scalar> I_H_reduced = U_r * S_r * V_r.transpose();
+            assert(I_H_reduced.rows() == r);
+            assert(I_H_reduced.cols() == static_cast<int>(fine_patch_interior.size()));
             return Eigen::SparseMatrix<Scalar>(I_H_reduced.sparseView());
         }
 

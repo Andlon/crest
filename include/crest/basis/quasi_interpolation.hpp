@@ -106,7 +106,8 @@ namespace crest
             for (int t = 0; t < coarse.num_elements(); ++t)
             {
                 const auto triangle = coarse.triangle_for(t);
-                const auto determinant = static_cast<Scalar>(2.0) * area(triangle);
+                const auto determinant = static_cast<Scalar>(2.0) * crest::area(triangle);
+                assert(determinant != static_cast<Scalar>(0));
                 Eigen::Matrix<Scalar, 3, 3> P_local = determinant * P_ref.template cast<Scalar>();
                 P_local = P_local.inverse().eval();
 
@@ -114,7 +115,6 @@ namespace crest
                 {
                     for (int i = 0; i < 3; ++i)
                     {
-
                         const auto row = 3 * t + i;
                         const auto col = 3 * t + j;
                         P.insert(row, col) = P_local(i, j);
