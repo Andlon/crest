@@ -83,7 +83,7 @@ namespace crest {
     template <typename T>
     inline T cross(const Vertex<T> & a, const Vertex<T> & b)
     {
-        return a.x * b.y + a.y * b.x;
+        return a.x * b.y - a.y * b.x;
     }
 
 }

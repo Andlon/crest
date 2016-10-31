@@ -50,7 +50,7 @@ namespace crest
     {
         const auto ac = triangle.c - triangle.a;
         const auto ab = triangle.b - triangle.a;
-        return abs(cross(ac, ab)) / 2.0;
+        return std::fabs(cross(ac, ab)) / static_cast<T>(2.0);
     }
 
 }
