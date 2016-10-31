@@ -63,7 +63,6 @@ namespace crest
 
                     for (size_t j = 0; j < 3; ++j)
                     {
-                        const auto vertex_index = vertex_indices[j];
                         const auto product = [&] (auto x, auto y)
                         {
                             const auto coarse_basis_value =
@@ -74,23 +73,28 @@ namespace crest
                                     fine_coeff(0, j) * x + fine_coeff(1, j) * y + fine_coeff(2, j);
                             return coarse_basis_value * fine_basis_value;
                         };
-                        const auto inner_product = triquad<2>(product,
-                                                              fine_triangle.a,
-                                                              fine_triangle.b,
-                                                              fine_triangle.c);
 
                         // At this point, we only know the index of the vertex in the global mesh,
                         // but we need the index of the vertex with respect to the patch interior. For now,
                         // we just perform a binary search to recover it, though there may be much more efficient ways.
                         // For example, we can construct a hashmap in the beginning of this function (which may
                         // or may not be more efficient).
+                        const auto vertex_index = vertex_indices[j];
                         const auto range = std::equal_range(fine_patch_interior.cbegin(),
                                                             fine_patch_interior.cend(),
                                                             vertex_index);
 
-                        assert(range.first != range.second);
-                        const auto local_index = range.first - fine_patch_interior.cbegin();
-                        rhs(local_index) += inner_product;
+                        if (range.first != range.second)
+                        {
+                            const auto inner_product = triquad<2>(product,
+                                                                  fine_triangle.a,
+                                                                  fine_triangle.b,
+                                                                  fine_triangle.c);
+
+                            const auto local_index = range.first - fine_patch_interior.cbegin();
+                            rhs(local_index) += inner_product;
+                        }
+
                     }
                 }
             }
@@ -203,7 +207,7 @@ namespace crest
             // In addition to the above, we'll use a compact SVD when reconstructing to reduce the work required.
             const auto U_r = svd.matrixU().topLeftCorner(r, r);
             const auto S_r = svd.singularValues().topRows(r).asDiagonal();
-            const auto V_r = svd.matrixV().topRows(r);
+            const auto V_r = svd.matrixV().leftCols(r);
 
             const MatrixX<Scalar> I_H_reduced = U_r * S_r * V_r.transpose();
             return Eigen::SparseMatrix<Scalar>(I_H_reduced.sparseView());
