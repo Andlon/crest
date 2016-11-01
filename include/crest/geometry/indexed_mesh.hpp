@@ -241,6 +241,27 @@ namespace crest {
         return o;
     }
 
+    template <typename S, typename I>
+    inline std::ostream & operator<<(std::ostream & o, const IndexedMesh<S, I> & mesh)
+    {
+        using std::endl;
+        o << "IndexedMesh with " << mesh.num_vertices() << " vertices and " << mesh.num_elements() << " elements."
+          << endl
+          << "Vertices: " << endl;
+
+        for (const auto v : mesh.vertices())
+        {
+            o << "\t" << v << endl;
+        }
+
+        o << "Elements: " << endl;
+        for (I e = 0; e < mesh.num_elements(); ++e)
+        {
+            o << "\t" << mesh.elements()[e] << " with ancestor " << mesh.ancestor_for(e) << endl;
+        }
+        return o;
+    };
+
     template <typename T, typename I>
     inline IndexedMesh<T, I>::IndexedMesh(std::vector<IndexedMesh<T, I>::Vertex> vertices,
                                           std::vector<IndexedMesh<T, I>::Element> elements)
