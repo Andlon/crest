@@ -232,26 +232,34 @@ namespace crest
             assert(local_index >= 0 && local_index < 3);
             assert(coarse_element >= 0 && coarse_element < coarse.num_elements());
 
+            std::vector<Eigen::Triplet<Scalar>> triplets;
+
             const auto coarse_patch = patch_for_element(coarse, coarse_element, oversampling);
             const auto fine_patch = fine_patch_from_coarse(fine, coarse_patch);
             const auto fine_patch_interior = patch_interior(fine, fine_patch);
 
-            const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
-                                                                coarse,
-                                                                coarse_patch,
-                                                                fine_patch_interior);
-            const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);
-            const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch, fine_patch_interior);
-
-            const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
-
-            std::vector<Eigen::Triplet<Scalar>> triplets;
-            const auto global_index = coarse.elements()[local_index].vertex_indices[local_index];
-            for (size_t k = 0; k < fine_patch_interior.size(); ++k)
+            if (fine_patch_interior.empty())
             {
-                triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
+                return triplets;
             }
-            return triplets;
+            else
+            {
+                const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
+                                                                    coarse,
+                                                                    coarse_patch,
+                                                                    fine_patch_interior);
+                const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);
+                const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch, fine_patch_interior);
+
+                const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
+
+                const auto global_index = coarse.elements()[local_index].vertex_indices[local_index];
+                for (size_t k = 0; k < fine_patch_interior.size(); ++k)
+                {
+                    triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
+                }
+                return triplets;
+            }
         }
 
         template <typename Scalar>
