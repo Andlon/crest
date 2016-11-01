@@ -123,7 +123,7 @@ namespace crest
             // Constructing the C matrix with triplets is not the most efficient way, but it is
             // fairly simple and probably still relatively efficient.
             std::vector<Eigen::Triplet<Scalar>> triplets;
-            for (int i = 0; i < A.rows(); ++i)
+            for (int i = 0; i < A.outerSize(); ++i)
             {
                 for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(A, i); it; ++it)
                 {
@@ -131,7 +131,7 @@ namespace crest
                 }
             }
 
-            for (int i = 0; i < I_H.rows(); ++i)
+            for (int i = 0; i < I_H.outerSize(); ++i)
             {
                 for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(I_H, i); it; ++it)
                 {
@@ -199,21 +199,25 @@ namespace crest
             // the solution process problematic. In this case we want to fulfill the interpolation constraint
             // exactly, so we will resort to a very expensive dense SVD computation.
             // Given the SVD given by I_H_local = U S V^T,
-            // and with r = rank(I_H_local), we can construct the matrix
-            // I_H_reduced = U_r S V^T,
-            // where U_r corresponds to the r first rows of U.
-            // As it turns out, ker(I_H_reduced) = ker(I_H_local), and I_H_reduced has full row rank.
-            // which means we can replace I_H_local with I_H_reduced in the saddle point formulation.
-            const Eigen::JacobiSVD<MatrixX<Scalar>> svd(MatrixX<Scalar>(I_H_local),
-                                                        Eigen::ComputeThinU | Eigen::ComputeThinV);
+            // and denoting r = rank(I_H_local), recall that the last n - r columns of V span the null space of
+            // I_H_local. Since we are only interested in the null space, we can replace I_H_local by
+            // an r x n matrix I_H_reduced such that ker(I_H_reduced) = ker(I_H_local).
+            // To do this, we note simply that we only require the SVD of I_H_reduced to share the same right
+            // singular vectors, and so we simply let the U and S matrices be the r x r identity matrix and a
+            // r x n rectangular identity matrix, respectively. Hence, writing
+            //
+            // I_H_reduced = I_r * [ I_r   0 ] V^T
+            //             = [ I_r   0 ] [ V_11^T   V_21^T ]
+            //             =             [ V_12^T   V_22^T ]
+            //             = [ V_11^T    V_21^T ],
+            //
+            // and hence we can define I_H_reduced as V_r^T, where V_r corresponds to the first r columns of
+            // the original V.
+            const Eigen::JacobiSVD<MatrixX<Scalar>> svd(MatrixX<Scalar>(I_H_local), Eigen::ComputeFullV);
             const auto r = svd.rank();
-
-            // In addition to the above, we'll use a compact SVD when reconstructing to reduce the work required.
-            const auto U_r = svd.matrixU().topLeftCorner(r, r);
-            const auto S_r = svd.singularValues().topRows(r).asDiagonal();
             const auto V_r = svd.matrixV().leftCols(r);
 
-            const MatrixX<Scalar> I_H_reduced = U_r * S_r * V_r.transpose();
+            const MatrixX<Scalar> I_H_reduced = V_r.transpose();
             assert(I_H_reduced.rows() == r);
             assert(I_H_reduced.cols() == static_cast<int>(fine_patch_interior.size()));
             return Eigen::SparseMatrix<Scalar>(I_H_reduced.sparseView());
