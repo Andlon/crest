@@ -9,7 +9,7 @@
  * constructed through successive rounds of bisection on random elements,
  * starting from a two-element triangulation.
  */
-inline auto arbitrary_coarse_unit_square_mesh(const unsigned int max_bisection_rounds = 6)
+inline auto arbitrary_coarse_unit_square_mesh(const int max_bisection_rounds = 6)
 {
     typedef crest::IndexedMesh<double, int>::Vertex Vertex;
     typedef crest::IndexedMesh<double, int>::Element Element;
