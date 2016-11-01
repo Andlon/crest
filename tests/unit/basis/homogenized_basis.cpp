@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <rapidcheck/gtest.h>
 
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/geometry/refinement.hpp>
@@ -7,6 +8,7 @@
 #include <crest/basis/homogenized_basis.hpp>
 
 #include <util/eigen_matchers.hpp>
+#include <util/test_generators.hpp>
 
 using ::testing::ElementsAreArray;
 using ::testing::Pointwise;
@@ -52,7 +54,7 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel)
 
     // Recall that each row of 'basis' corresponds to weights in the fine space, so by transposing it and
     // left-multiplying by I_H, we effectively compute I_H x_i for each basis function i.
-    // Since x is in the kernel of I_H, we expect the result to be zero.
+    // Since x_i is in the kernel of I_H, we expect the result to be zero.
     const Eigen::SparseMatrix<double> Z = I_H * basis.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
@@ -111,29 +113,14 @@ TEST(construct_saddle_point_problem_test, blockwise_correct)
     EXPECT_THAT(c.bottomRows(3)(2), DoubleEq(0.0));
 }
 
-TEST(homogenized_basis_test, correctors_are_zero_with_no_refinement)
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ())
 {
-    const std::vector<Vertex> coarse_vertices {
-            Vertex(0.0, 0.0),
-            Vertex(1.0, 0.0),
-            Vertex(1.0, 1.0),
-            Vertex(0.0, 1.0)
-    };
-
-    const std::vector<Element> coarse_elements {
-            Element({3, 0, 1}),
-            Element({1, 2, 3})
-    };
-
-    const auto initial_mesh = IndexedMesh<double, int>(coarse_vertices, coarse_elements);
-    const auto mesh = crest::bisect_to_tolerance(initial_mesh, 0.5);
-
-    const auto basis = crest::detail::homogenized_basis(mesh, mesh, 4);
+    const auto oversampling = *rc::gen::arbitrary<unsigned int>();
+    const auto mesh = *arbitrary_coarse_unit_square_mesh();
+    const auto basis = crest::detail::homogenized_basis(mesh, mesh, oversampling);
 
     ASSERT_THAT(basis.rows(), Eq(mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(mesh.num_vertices()));
-
-    const auto I_H = crest::quasi_interpolator(mesh, mesh);
 
     double max_abs = 0.0;
     for (int o = 0; o < basis.outerSize(); ++o)
@@ -144,5 +131,5 @@ TEST(homogenized_basis_test, correctors_are_zero_with_no_refinement)
         }
     }
 
-    EXPECT_THAT(max_abs, Lt(1e-15));
+    RC_ASSERT(max_abs < 1e-14);
 }

@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <rapidcheck/gtest.h>
 
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/basis/quasi_interpolation.hpp>
 #include <crest/geometry/refinement.hpp>
 
 #include <util/vertex_matchers.hpp>
+#include <util/test_generators.hpp>
+#include <util/eigen_matchers.hpp>
 
 #include <iostream>
 
@@ -14,6 +17,7 @@ using ::testing::Pointwise;
 using ::testing::Eq;
 using ::testing::DoubleEq;
 using ::testing::DoubleNear;
+using ::testing::Value;
 
 typedef crest::IndexedMesh<double, int> IndexedMesh;
 typedef IndexedMesh::Vertex Vertex;
@@ -112,4 +116,15 @@ TEST(quasi_interpolator, verify_successful_compilation)
     const auto I_H = crest::quasi_interpolator(coarse_mesh, fine_mesh);
     EXPECT_THAT(I_H.rows(), Eq(coarse_mesh.num_vertices()));
     EXPECT_THAT(I_H.cols(), Eq(fine_mesh.num_vertices()));
+}
+
+
+RC_GTEST_PROP(quasi_interpolator_test, interpolator_is_identity_map_for_equal_coarse_and_fine, ())
+{
+    const auto mesh = *arbitrary_coarse_unit_square_mesh();
+    const auto N = mesh.num_vertices();
+    const MatrixX<double> identity = MatrixX<double>::Identity(N, N);
+    const MatrixX<double> I_H = crest::quasi_interpolator(mesh, mesh);
+
+    RC_ASSERT(Value(I_H, MatrixEq(identity)));
 }
