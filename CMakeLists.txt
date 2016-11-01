@@ -21,9 +21,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 
     set(GCC_SANITIZE_FLAGS "-fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover")
     set(GCC_STD_DEBUG "-D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
+    set(GCC_EXTRA_DEBUG "-ggdb3")
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_FLAGS} ${GCC_STD_DEBUG}")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_FLAGS} ${GCC_STD_DEBUG} ${GCC_EXTRA_DEBUG}")
     set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address" )
 endif()
 
