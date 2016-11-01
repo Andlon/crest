@@ -33,10 +33,13 @@ add_subdirectory(external/googletest)
 # Make GTEST a SYSTEM include directory, to prevent warning propagation etc.
 include_directories(SYSTEM GTEST_ROOT/include)
 
+# Add rapidcheck for writing property-based tests
+add_subdirectory("external/rapidcheck")
+
 # Unit tests
 add_executable(unit_tests ${UNIT_TEST_SOURCES})
-target_link_libraries(unit_tests gmock gmock_main gtest gtest_main)
-target_include_directories(unit_tests PRIVATE tests/)
+target_link_libraries(unit_tests gmock gmock_main gtest gtest_main rapidcheck)
+target_include_directories(unit_tests PRIVATE tests/ SYSTEM external/rapidcheck/extras/gtest/include)
 set_property(TARGET unit_tests PROPERTY CXX_STANDARD 14)
 add_custom_target(unit COMMAND unit_tests)
 
