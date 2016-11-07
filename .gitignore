@@ -1,3 +1,9 @@
+# IDE-specific directories
+.idea/
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
+
 # Python intermediate output
 .cache/
 
