@@ -1,7 +1,13 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+
+#include <rapidcheck/gtest.h>
+#include <rapidcheck/state.h>
+
 #include <crest/geometry/indexed_mesh.hpp>
+
 #include <util/vertex_matchers.hpp>
+#include <util/test_generators.hpp>
 
 using crest::IndexedMesh;
 
@@ -554,11 +560,12 @@ TEST_F(indexed_mesh_refine_marked_test, throws_when_marked_contains_nonexisting_
     ASSERT_THROW(mesh.bisect_marked({0, 2, 6, 16}), std::invalid_argument);
 }
 
+
 TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
 {
     // This particular configuration examines a special case when the same element index needs to be
     // bisected twice in order to assure conformity.
-    const std::vector<Vertex> vertices {
+    const std::vector<Vertex> vertices{
             Vertex(-1.0, 0.5),
             Vertex(0.0, 0.0),
             Vertex(1.0, 0.0),
@@ -566,7 +573,7 @@ TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
             Vertex(0.0, 1.0)
     };
 
-    const std::vector<Element> elements {
+    const std::vector<Element> elements{
             Element({1, 0, 4}),
             Element({4, 1, 2}),
             Element({4, 2, 3}),
@@ -579,7 +586,7 @@ TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
     // certain checks will be run by the constructor to check for conformity.
     const auto reconstructed_mesh = IndexedMesh<>(mesh.vertices(), mesh.elements());
 
-    const std::vector<Vertex> expected_vertices {
+    const std::vector<Vertex> expected_vertices{
             Vertex(-1.0, 0.5),
             Vertex(0.0, 0.0),
             Vertex(1.0, 0.0),
@@ -590,7 +597,7 @@ TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
             Vertex(1.0, 1.0)
     };
 
-    const std::vector<Element> expected_elements {
+    const std::vector<Element> expected_elements{
             Element({0, 5, 1}),
             Element({6, 5, 1}),
             Element({7, 6, 2}),
@@ -614,4 +621,22 @@ TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
     EXPECT_THAT(reconstructed_mesh.neighbors_for(5), ElementsAre(3, 1, 7));
     EXPECT_THAT(reconstructed_mesh.neighbors_for(6), ElementsAre(NO_NEIGHBOR, 2, NO_NEIGHBOR));
     EXPECT_THAT(reconstructed_mesh.neighbors_for(7), ElementsAre(5, 2, NO_NEIGHBOR));
+}
+
+RC_GTEST_FIXTURE_PROP(indexed_mesh_refine_marked_test, elements_have_nonzero_area, ())
+{
+    const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
+
+    const auto extra_mesh = IndexedMesh<double, int>(mesh.vertices(), mesh.elements());
+
+    int num_nonzero_area = 0;
+    for (int k = 0; k < mesh.num_elements(); ++k)
+    {
+        const auto triangle = mesh.triangle_for(k);
+        if (crest::area(triangle) == 0)
+        {
+            ++num_nonzero_area;
+        }
+    }
+    RC_ASSERT(num_nonzero_area == 0);
 }
