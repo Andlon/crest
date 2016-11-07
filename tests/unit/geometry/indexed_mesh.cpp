@@ -553,3 +553,65 @@ TEST_F(indexed_mesh_refine_marked_test, throws_when_marked_contains_nonexisting_
     // The mesh in question has 16 elements, so index 16 is out of bounds, and so we expect it to throw!
     ASSERT_THROW(mesh.bisect_marked({0, 2, 6, 16}), std::invalid_argument);
 }
+
+TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
+{
+    // This particular configuration examines a special case when the same element index needs to be
+    // bisected twice in order to assure conformity.
+    const std::vector<Vertex> vertices {
+            Vertex(-1.0, 0.5),
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(2.0, 1.0),
+            Vertex(0.0, 1.0)
+    };
+
+    const std::vector<Element> elements {
+            Element({1, 0, 4}),
+            Element({4, 1, 2}),
+            Element({4, 2, 3}),
+    };
+
+    auto mesh = IndexedMesh<>(vertices, elements);
+    mesh.bisect_marked({0, 1});
+
+    // By creating a new mesh from the vertices and elements,
+    // certain checks will be run by the constructor to check for conformity.
+    const auto reconstructed_mesh = IndexedMesh<>(mesh.vertices(), mesh.elements());
+
+    const std::vector<Vertex> expected_vertices {
+            Vertex(-1.0, 0.5),
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(2.0, 1.0),
+            Vertex(0.0, 1.0),
+            Vertex(0.0, 0.5),
+            Vertex(0.5, 0.5),
+            Vertex(1.0, 1.0)
+    };
+
+    const std::vector<Element> expected_elements {
+            Element({0, 5, 1}),
+            Element({6, 5, 1}),
+            Element({7, 6, 2}),
+            Element({4, 5, 0}),
+            Element({2, 6, 1}),
+            Element({4, 5, 6}),
+            Element({3, 7, 2}),
+            Element({4, 6, 7})
+    };
+
+    const auto NO_NEIGHBOR = reconstructed_mesh.sentinel();
+
+    EXPECT_THAT(reconstructed_mesh.vertices(), Pointwise(VertexDoubleEq(), expected_vertices));
+    EXPECT_THAT(reconstructed_mesh.elements(), ElementsAreArray(expected_elements));
+
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(0), ElementsAre(3, 1, NO_NEIGHBOR));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(1), ElementsAre(5, 0, 4));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(2), ElementsAre(7, 4, 6));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(3), ElementsAre(5, 0, NO_NEIGHBOR));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(4), ElementsAre(2, 1, NO_NEIGHBOR));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(5), ElementsAre(3, 1, 7));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(6), ElementsAre(NO_NEIGHBOR, 2, NO_NEIGHBOR));
+    EXPECT_THAT(reconstructed_mesh.neighbors_for(7), ElementsAre(5, 2, NO_NEIGHBOR));
+}
