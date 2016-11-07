@@ -395,8 +395,6 @@ namespace crest {
 
         using detail::Edge;
 
-        std::unordered_map<Edge<I>, I, detail::EdgeHash<I>> hanging_nodes;
-
         constexpr I NO_NEIGHBOR = sentinel();
         std::vector<I> nonconforming;
 
@@ -420,47 +418,65 @@ namespace crest {
                 const auto & element = elements()[element_index];
                 const auto neighbors = neighbors_for(element_index);
 
-                const auto edge_is_on_boundary = [this, neighbors] (I local_edge_index) {
-                    return neighbors[local_edge_index] == NO_NEIGHBOR;
+                const auto edge_is_on_boundary = [this, element_index] (I local_edge_index) {
+                    return neighbors_for(element_index)[local_edge_index] == NO_NEIGHBOR;
                 };
 
-                const auto edge_has_hanging_node = [this, element, neighbors, element_index, &hanging_nodes] (I local_edge_index) {
-                    const auto neighbor = neighbors[local_edge_index];
+                const auto edge_has_hanging_node = [this, element, element_index] (I local_edge_index) {
+                    const auto neighbor = neighbors_for(element_index)[local_edge_index];
                     if (neighbor == NO_NEIGHBOR)
                     {
                         return false;
                     }
                     else
                     {
+                        const auto nb_vertices = elements()[neighbor].vertex_indices;
+
                         const auto a = element.vertex_indices[local_edge_index];
                         const auto b = element.vertex_indices[(local_edge_index + 1) % 3];
-                        return hanging_nodes.count(Edge<I>(a, b)) > 0;
+
+                        assert(algo::contains(nb_vertices, a) || algo::contains(nb_vertices, b));
+
+                        if (algo::contains(nb_vertices, a) && algo::contains(nb_vertices, b))
+                        {
+                            // The entire edge is shared
+                            return false;
+                        } else {
+                            const auto nb_neighbors = neighbors_for(neighbor);
+                            const auto nb_edge_index = algo::index_of(nb_neighbors, element_index);
+
+                            const auto nb_a = nb_vertices[nb_edge_index];
+                            const auto nb_b = nb_vertices[(nb_edge_index + 1) % 3];
+
+                            const auto max_index = std::max({a, b, nb_a, nb_b});
+
+                            return max_index != a && max_index != b;
+                        }
                     }
                 };
 
-                auto update_neighbor_of = [&]
+                auto update_neighbor_of = [this, &nonconforming, element_index, edge_is_on_boundary, edge_has_hanging_node]
                         (I local_edge_index, I new_index) {
                     // Update the neighbor on the edge indicated by local_edge_index with the new index.
                     // This is of course only necessary if there exists a neighbor at all
                     // (i.e. we're not on the boundary)
                     if (!edge_is_on_boundary(local_edge_index))
                     {
-                        const auto neighbor = neighbors[local_edge_index];
+                        const auto neighbor = neighbors_for(element_index)[local_edge_index];
                         auto & neighbors_of_neighbor = _neighbors[neighbor].indices;
                         auto pos_of_element_in_neighbor =
                                 std::find(neighbors_of_neighbor.begin(), neighbors_of_neighbor.end(), element_index);
-
-                        if (pos_of_element_in_neighbor != neighbors_of_neighbor.end())
-                        {
-                            *pos_of_element_in_neighbor = new_index;
-                        }
 
                         if (edge_has_hanging_node(local_edge_index))
                         {
                             nonconforming.push_back(new_index);
                         }
-                    }
 
+                        if (pos_of_element_in_neighbor != neighbors_of_neighbor.end())
+                        {
+                            *pos_of_element_in_neighbor = new_index;
+                        }
+                    }
                 };
 
                 const auto left_index = element_index;
@@ -476,9 +492,8 @@ namespace crest {
                 auto right_neighbors = Neighbors({NO_NEIGHBOR, left_index, neighbors[1] });
                 const auto refinement_neighbor = neighbors[2];
 
-                auto midpoint_it = hanging_nodes.find(Edge<I>(z2, z0));
                 I midpoint_index = sentinel();
-                if (edge_is_on_boundary(2) || midpoint_it == hanging_nodes.end())
+                if (edge_is_on_boundary(2) || !edge_has_hanging_node(2))
                 {
                     const auto v0 = vertices()[z0];
                     const auto v2 = vertices()[z2];
@@ -495,8 +510,7 @@ namespace crest {
                     }
                     else
                     {
-                        hanging_nodes.insert(std::make_pair(Edge<I>(z2, z0), midpoint_index));
-                        if (!std::binary_search(marked.cbegin(), marked.cend(), refinement_neighbor))
+                        if (refinement_neighbor < element_index || !std::binary_search(marked.cbegin(), marked.cend(), refinement_neighbor))
                         {
                             // If n20 exists and has not already been marked, add it as a nonconforming triangle,
                             // since we've added a midpoint on the shared edge. We must make sure to only add it as
@@ -510,8 +524,18 @@ namespace crest {
                 {
                     // Denote n20 as the neighbor on edge (z2, z0)
                     const auto & n20 = refinement_neighbor;
-                    midpoint_index = midpoint_it->second;
-                    hanging_nodes.erase(midpoint_it);
+
+                    {
+                        const auto n20_vertices = elements()[n20].vertex_indices;
+                        const auto n20_neighbors = neighbors_for(n20);
+                        const auto n20_local_edge = algo::index_of(n20_neighbors, element_index);
+                        assert(n20_local_edge >= 0 && n20_local_edge < 3);
+
+                        const auto a = n20_vertices[n20_local_edge];
+                        const auto b = n20_vertices[(n20_local_edge + 1) % 3];
+
+                        midpoint_index = std::max(a, b);
+                    }
 
                     // Next, we need to recover the index of the second triangle connected to the midpoint
                     // which has the current element as its neighbor. In order to do so, we can
@@ -577,9 +601,12 @@ namespace crest {
                         right_neighbors.indices[0] = n20_second;
 
 
-                        const auto local_edge = find_local_edge_for_global_edge(n20_second, Edge<I>(z2, midpoint_index));
-                        assert(local_edge != sentinel());
-                        _neighbors[n20_second].indices[local_edge] = right_index;
+                        const auto n20_local_edge = find_local_edge_for_global_edge(n20, Edge<I>(z0, midpoint_index));
+                        const auto n20_second_local_edge = find_local_edge_for_global_edge(n20_second, Edge<I>(z2, midpoint_index));
+                        assert(n20_local_edge != sentinel());
+                        assert(n20_second_local_edge != sentinel());
+                        _neighbors[n20].indices[n20_local_edge] = left_index;
+                        _neighbors[n20_second].indices[n20_second_local_edge] = right_index;
                     }
                     else
                     {
