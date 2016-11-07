@@ -52,3 +52,6 @@ set(PYCREST_SOURCES pycrest/pycrest.cpp)
 add_library(pycrest SHARED ${PYCREST_SOURCES})
 set_property(TARGET pycrest PROPERTY CXX_STANDARD 14)
 
+# Simple executables which can be used for profiling with valgrind
+add_executable(bench_bisect_to_tolerance bench/bisect_to_tolerance.cpp)
+set_property(TARGET bench_bisect_to_tolerance PROPERTY CXX_STANDARD 14)
