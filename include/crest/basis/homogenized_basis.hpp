@@ -184,15 +184,9 @@ namespace crest
             assert(std::is_sorted(coarse_patch.cbegin(), coarse_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
 
-            // Since I_H x = 0 on the boundary of the global mesh, we need to make sure to exclude
-            // the boundary vertices of the global mesh
             const auto coarse_patch_vertices = patch_vertices(coarse_mesh, coarse_patch);
-            std::vector<int> coarse_patch_non_boundary_vertices;
-            std::set_difference(coarse_patch_vertices.cbegin(), coarse_patch_vertices.cend(),
-                                coarse_mesh.boundary_vertices().cbegin(), coarse_mesh.boundary_vertices().cend(),
-                                std::back_inserter(coarse_patch_non_boundary_vertices));
             const auto I_H_local = sparse_submatrix(global_interpolator,
-                                                    coarse_patch_non_boundary_vertices,
+                                                    coarse_patch_vertices,
                                                     fine_patch_interior);
 
             // In its current state, the local interpolator matrix may be rank-deficient, which makes
