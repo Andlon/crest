@@ -251,7 +251,7 @@ namespace crest
 
                 const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
 
-                const auto global_index = coarse.elements()[local_index].vertex_indices[local_index];
+                const auto global_index = coarse.elements()[coarse_element].vertex_indices[local_index];
                 for (size_t k = 0; k < fine_patch_interior.size(); ++k)
                 {
                     triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
