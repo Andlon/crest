@@ -625,7 +625,7 @@ TEST_F(indexed_mesh_refine_marked_test, double_bisection_of_element)
 
 RC_GTEST_FIXTURE_PROP(indexed_mesh_refine_marked_test, elements_have_nonzero_area, ())
 {
-    const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
+    const auto mesh = *crest::gen::arbitrary_unit_square_mesh(14);
 
     const auto extra_mesh = IndexedMesh<double, int>(mesh.vertices(), mesh.elements());
 
