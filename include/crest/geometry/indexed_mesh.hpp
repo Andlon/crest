@@ -33,6 +33,12 @@ namespace crest {
         explicit Neighbors(std::array<Index, 3> indices) : indices(std::move(indices)) {}
     };
 
+    namespace detail
+    {
+        template <typename Index>
+        struct Edge;
+    }
+
     /**
      * IndexedMesh represents a 2D triangulation by an indexed set of vertices and a set of elements which holds
      * indices into the indexed set of vertices.
@@ -73,7 +79,18 @@ namespace crest {
         /**
          * Use newest-vertex-bisection (NVB) to bisect all triangles indicated by their corresponding indices
          * in the supplied vector of indices.
-         * @param marked
+         *
+         * Note that the application of NVB means that in addition to the marked elements,
+         * additional elements may have to be bisected in order for the mesh to remain conforming.
+         *
+         * In particular, for every triangle with vertices labelled (z0, z1, z2), if the triangle is marked
+         * or must be bisected to maintain a conforming triangulation, then it is replaced by two new
+         * triangles with vertices (z1, z_mid, z0) and (z2, z_mid, z1) respectively, where
+         * z_mid is the midpoint on the refinement edge (z2, z0).
+         *
+         * The implementation has been designed to be memory-efficient and very fast.
+         *
+         * @param marked A set of valid triangle indices that should be bisected.
          */
         void bisect_marked(std::vector<Index> marked);
 
@@ -100,6 +117,13 @@ namespace crest {
         constexpr static SentinelType sentinel() { return std::numeric_limits<Index>::max(); }
 
     private:
+        bool edge_has_hanging_node(Index element_index, Index local_edge_index);
+        Index find_local_edge_in_element(Index element_index, const detail::Edge<Index> & global_edge);
+        Index find_midpoint(Index element_index, Index first_refinement_neighbor);
+        Index find_second_refinement_neighbor(Index element_index,
+                                              Index first_refinement_neighbor,
+                                              Index midpoint_index);
+
         std::vector<Vertex> _vertices;
         std::vector<Element> _elements;
         std::vector<Neighbors> _neighbors;
@@ -370,21 +394,130 @@ namespace crest {
     }
 
     template <typename T, typename I>
+    inline bool IndexedMesh<T, I>::edge_has_hanging_node(I element_index, I local_edge_index)
+    {
+        typedef detail::Edge<I> Edge;
+
+        assert(element_index >= 0 && element_index < num_elements());
+        assert(local_edge_index >= 0 && local_edge_index < 3);
+        constexpr auto NO_NEIGHBOR = sentinel();
+
+        const auto neighbor = neighbors_for(element_index)[local_edge_index];
+        if (neighbor == NO_NEIGHBOR)
+        {
+            return false;
+        }
+        else
+        {
+            const auto element_vertices = elements()[element_index].vertex_indices;
+            const auto nb_vertices = elements()[neighbor].vertex_indices;
+            const auto nb_neighbors = neighbors_for(neighbor);
+            const auto nb_edge_index = algo::index_of(nb_neighbors, element_index);
+
+            const auto a = element_vertices[local_edge_index];
+            const auto b = element_vertices[(local_edge_index + 1) % 3];
+            const auto nb_a = nb_vertices[nb_edge_index];
+            const auto nb_b = nb_vertices[(nb_edge_index + 1) % 3];
+            const auto max_index = std::max({a, b, nb_a, nb_b});
+
+            const auto edge_is_shared = Edge(a, b) == Edge(nb_a, nb_b);
+
+            // From the aforementioned property, it follows that the midpoint must be the largest index
+            // in the set {a, b, nb_a, nb_b}. We can use this to determine if the midpoint is on (z2, z0),
+            // in which case the midpoint is not contained in the current triangle.
+            const auto midpoint_is_on_refinement_edge = max_index != a && max_index != b;
+
+            assert(algo::contains(nb_vertices, a) || algo::contains(nb_vertices, b));
+            return !edge_is_shared && midpoint_is_on_refinement_edge;
+        }
+    }
+
+    template <typename T, typename I>
+    inline I IndexedMesh<T, I>::find_local_edge_in_element(I element_index,
+                                                           const crest::detail::Edge<I> & global_edge)
+    {
+        typedef detail::Edge<I> Edge;
+        for (I i = 0; i < 3; ++i)
+        {
+            const auto a = elements()[element_index].vertex_indices[i];
+            const auto b = elements()[element_index].vertex_indices[(i + 1) % 3];
+
+            if (Edge(a, b) == global_edge)
+            {
+                return i;
+            }
+        }
+
+        return sentinel();
+    }
+
+    template <typename T, typename I>
+    inline I IndexedMesh<T, I>::find_second_refinement_neighbor(I element_index,
+                                                                I first_refinement_neighbor,
+                                                                I midpoint_index)
+    {
+        // We need to recover the index of the second triangle connected to the midpoint
+        // which has the current element as its neighbor. In order to do so, we can
+        // cycle through the triangles connected to the midpoint.
+        auto current = first_refinement_neighbor;
+        auto previous = sentinel();
+
+        const auto is_next = [this, &previous, element_index, midpoint_index] (auto n)
+        {
+            constexpr auto NO_NEIGHBOR = this->sentinel();
+            return n != NO_NEIGHBOR
+                   && n != previous
+                   && algo::contains(this->elements()[n].vertex_indices, midpoint_index);
+        };
+
+        while (true)
+        {
+            const auto current_neighbors = neighbors_for(current);
+            const auto next = std::find_if(current_neighbors.cbegin(),
+                                           current_neighbors.cend(),
+                                           is_next);
+            if (next != current_neighbors.cend())
+            {
+                previous = current;
+                current = *next;
+            }
+            else
+            {
+                // Since the midpoint is a hanging node, we won't be able to cycle all the way back to the
+                // first refinement neighbor. Hence, when we'are at the last node in the cycle,
+                // we have found the second refinement neighbor.
+                return current;
+            }
+        }
+    }
+
+    template <typename T, typename I>
+    inline I IndexedMesh<T, I>::find_midpoint(I element_index, I first_refinement_neighbor)
+    {
+        // In order to determine the midpoint,
+        // we can note that the midpoint must be one of the vertices a, b in the first refinement neighbor on the edge
+        // which neighbors the current element. Recalling the property that for any edge (a, b)
+        // with a midpoint c, we have that c > a, c > b since midpoints are always added
+        // after the vertices that make up the edge.
+        const auto refinement_nb_vertices = elements()[first_refinement_neighbor].vertex_indices;
+        const auto refinement_neighbors = neighbors_for(first_refinement_neighbor);
+        const auto refinement_local_edge = algo::index_of(refinement_neighbors, element_index);
+        assert(refinement_local_edge >= 0 && refinement_local_edge < 3);
+
+        const auto a = refinement_nb_vertices[refinement_local_edge];
+        const auto b = refinement_nb_vertices[(refinement_local_edge + 1) % 3];
+
+        return std::max(a, b);
+    }
+
+    template <typename T, typename I>
     inline void IndexedMesh<T, I>::bisect_marked(std::vector<I> marked)
     {
         // The implementation here relies heavily on certain important conventions.
         // First, for any element K defined by vertex indices (z0, z1, z2),
         // we define the *refinement edge* to be the edge between z2 and z0, denoted (z2, z0).
 
-        // Furthermore, we introduce the convention that a triangle K has a hanging node on edge E
-        // if another triangle T is a neighbor of K on E, but K is not a neighbor of T on E.
-
-        // In other words, we may represent the neighbor relationships as a directed graph. In a conforming mesh,
-        // any triangle K and a neighbor T will have bidirectional edges, whereas if the mesh has hanging nodes,
-        // this is not the case. We use this property to determine if there are hanging nodes.
-        // Hence, we are done once all neighbor edges are bidirectional after refinement.
-
-        // As for the bisection, for a triangle K defined by the vertices (z0, z1, z2), and the midpoint z_mid
+        // For a triangle K defined by the vertices (z0, z1, z2), and the midpoint z_mid
         // on the refinement edge (z2, z0), we define the 'left' and 'right' triangles as the two triangles defined
         // by the vertices (z1, midpoint_index, z0) and (z2, midpoint_index, z1) respectively. The names correspond
         // to the fact that if the vertices are defined in a counter-clockwise order, the 'left' triangle will
@@ -393,9 +526,25 @@ namespace crest {
         // This is important, because for some applications (such as computer graphics), the winding order defines
         // the orientation of the face associated with the triangle.
 
-        using detail::Edge;
+        // The below implementation is quite complicated, because it is designed only to use memory-efficient
+        // flat data structures (std::vector), avoiding more complicated data structures like hash tables, which
+        // could simplify the implementation somewhat. For a justification, note that the current implementation
+        // runs about 10 times as fast as the implementation based on hash tables that was implemented first.
+
+        // In the below implementation, we leverage the following properties of the implementation:
+        // - Given a triangle T and a neighbor K on its refinement edge (z2, z0), its children L = (z1, z_mid, z0)
+        //   and R = (z2, z_mid, z1) after bisection will have neighbors K and NO_NEIGHBOR, respectively,
+        //   and K will have neighbor L on the refinement edge.
+        // - Any midpoint added to the triangulation is always added to the end of the list of vertices.
+        //   Consequently, given an edge (a, b), its midpoint c will have index c > a, c > b.
+
+        typedef detail::Edge<I> Edge;
 
         constexpr I NO_NEIGHBOR = sentinel();
+
+        // We will maintain a list of 'marked' elements, which are marked in this round of refinement,
+        // and a list of 'nonconforming' elements which correspond to elements which contain hanging nodes
+        // and must subsequently be refined.
         std::vector<I> nonconforming;
 
         if (std::any_of(marked.cbegin(), marked.cend(), [this] (auto i) { return i >= this->num_elements(); }))
@@ -408,8 +557,7 @@ namespace crest {
             // so we need to remove duplicates first. We also sort it so we can use binary search later.
             // Using a hashset would provide better average complexity, but it would be less memory-efficient,
             // and since triangulations usually don't grow too big (more than a few million elements, perhaps),
-            // std::sort is still extremely fast for integers. Of course, proper profiling would need to take place
-            // in order to verify this.
+            // std::sort is still extremely fast for integers.
             std::sort(marked.begin(), marked.end());
             marked.erase(std::unique(marked.begin(), marked.end()), marked.end());
 
@@ -422,40 +570,7 @@ namespace crest {
                     return neighbors_for(element_index)[local_edge_index] == NO_NEIGHBOR;
                 };
 
-                const auto edge_has_hanging_node = [this, element, element_index] (I local_edge_index) {
-                    const auto neighbor = neighbors_for(element_index)[local_edge_index];
-                    if (neighbor == NO_NEIGHBOR)
-                    {
-                        return false;
-                    }
-                    else
-                    {
-                        const auto nb_vertices = elements()[neighbor].vertex_indices;
-
-                        const auto a = element.vertex_indices[local_edge_index];
-                        const auto b = element.vertex_indices[(local_edge_index + 1) % 3];
-
-                        assert(algo::contains(nb_vertices, a) || algo::contains(nb_vertices, b));
-
-                        if (algo::contains(nb_vertices, a) && algo::contains(nb_vertices, b))
-                        {
-                            // The entire edge is shared
-                            return false;
-                        } else {
-                            const auto nb_neighbors = neighbors_for(neighbor);
-                            const auto nb_edge_index = algo::index_of(nb_neighbors, element_index);
-
-                            const auto nb_a = nb_vertices[nb_edge_index];
-                            const auto nb_b = nb_vertices[(nb_edge_index + 1) % 3];
-
-                            const auto max_index = std::max({a, b, nb_a, nb_b});
-
-                            return max_index != a && max_index != b;
-                        }
-                    }
-                };
-
-                auto update_neighbor_of = [this, &nonconforming, element_index, edge_is_on_boundary, edge_has_hanging_node]
+                auto update_neighbor_of = [this, &nonconforming, element_index, edge_is_on_boundary]
                         (I local_edge_index, I new_index) {
                     // Update the neighbor on the edge indicated by local_edge_index with the new index.
                     // This is of course only necessary if there exists a neighbor at all
@@ -467,7 +582,7 @@ namespace crest {
                         auto pos_of_element_in_neighbor =
                                 std::find(neighbors_of_neighbor.begin(), neighbors_of_neighbor.end(), element_index);
 
-                        if (edge_has_hanging_node(local_edge_index))
+                        if (edge_has_hanging_node(element_index, local_edge_index))
                         {
                             nonconforming.push_back(new_index);
                         }
@@ -493,11 +608,49 @@ namespace crest {
                 const auto refinement_neighbor = neighbors[2];
 
                 I midpoint_index = sentinel();
-                if (edge_is_on_boundary(2) || !edge_has_hanging_node(2))
+                if (edge_has_hanging_node(element_index, 2))
                 {
+                    midpoint_index = find_midpoint(element_index, refinement_neighbor);
+
+                    // Denote n20 as the neighbor on edge (z2, z0)
+                    const auto & n20 = refinement_neighbor;
+                    const auto n20_second = find_second_refinement_neighbor(element_index, n20, midpoint_index);
+
+                    // Determine which child in the refinement neighbor (n20, n20_second) gets connected
+                    // to the children of the triangle currently being bisected.
+                    I left_refinement_neighbor, right_refinement_neighbor;
+                    const auto n20_vertices = elements()[n20].vertex_indices;
+                    if (algo::contains(n20_vertices, z0))
+                    {
+                        left_refinement_neighbor = n20;
+                        right_refinement_neighbor = n20_second;
+                    }
+                    else
+                    {
+                        assert(algo::contains(n20_vertices, z2));
+                        left_refinement_neighbor = n20_second;
+                        right_refinement_neighbor = n20;
+                    }
+
+                    // Make the neighbor connections, effectively removing the hanging node.
+                    left_neighbors.indices[1] = left_refinement_neighbor;
+                    right_neighbors.indices[0] = right_refinement_neighbor;
+
+                    const auto left_ref_local_edge = find_local_edge_in_element(left_refinement_neighbor,
+                                                                                Edge(z0, midpoint_index));
+                    const auto right_ref_local_edge = find_local_edge_in_element(right_refinement_neighbor,
+                                                                                 Edge(z2, midpoint_index));
+                    _neighbors[left_refinement_neighbor].indices[left_ref_local_edge] = left_index;
+                    _neighbors[right_refinement_neighbor].indices[right_ref_local_edge] = right_index;
+
+                    assert(left_ref_local_edge != sentinel());
+                    assert(right_ref_local_edge != sentinel());
+                }
+                else
+                {
+                    // There is currently no hanging node on the refinement edge
                     const auto v0 = vertices()[z0];
                     const auto v2 = vertices()[z2];
-                    // There is currently no hanging node on the refinement edge
                     midpoint_index = static_cast<I>(num_vertices());
                     _vertices.emplace_back(midpoint(v0, v2));
 
@@ -508,120 +661,13 @@ namespace crest {
                         // we add the midpoint to the list of boundary indices.
                         _boundary.push_back(midpoint_index);
                     }
-                    else
+                    else if (refinement_neighbor < element_index
+                             || !std::binary_search(marked.cbegin(), marked.cend(), refinement_neighbor))
                     {
-                        if (refinement_neighbor < element_index || !std::binary_search(marked.cbegin(), marked.cend(), refinement_neighbor))
-                        {
-                            // If n20 exists and has not already been marked, add it as a nonconforming triangle,
-                            // since we've added a midpoint on the shared edge. We must make sure to only add it as
-                            // a nonconforming element if it isn't already marked, otherwise we might end up
-                            // bisecting the left bisection of n20 twice.
-                            nonconforming.push_back(refinement_neighbor);
-
-                        }
+                        // If the refinement neighbor is not currently already queued for bisection,
+                        // we must mark it for bisection in the next round.
+                        nonconforming.push_back(refinement_neighbor);
                     }
-                } else
-                {
-                    // Denote n20 as the neighbor on edge (z2, z0)
-                    const auto & n20 = refinement_neighbor;
-
-                    {
-                        const auto n20_vertices = elements()[n20].vertex_indices;
-                        const auto n20_neighbors = neighbors_for(n20);
-                        const auto n20_local_edge = algo::index_of(n20_neighbors, element_index);
-                        assert(n20_local_edge >= 0 && n20_local_edge < 3);
-
-                        const auto a = n20_vertices[n20_local_edge];
-                        const auto b = n20_vertices[(n20_local_edge + 1) % 3];
-
-                        midpoint_index = std::max(a, b);
-                    }
-
-                    // Next, we need to recover the index of the second triangle connected to the midpoint
-                    // which has the current element as its neighbor. In order to do so, we can
-                    // cycle through the triangles connected to the midpoint.
-
-                    auto n20_second = sentinel();
-
-                    {
-                        auto current = n20;
-                        auto previous = sentinel();
-
-                        const auto is_next = [this, &previous, NO_NEIGHBOR, element_index, midpoint_index] (auto n)
-                        {
-                            return n != NO_NEIGHBOR
-                                   && n != previous
-                                   && algo::contains(this->elements()[n].vertex_indices, midpoint_index);
-                        };
-
-                        while (true)
-                        {
-                            const auto current_neighbors = neighbors_for(current);
-                            const auto next = std::find_if(current_neighbors.cbegin(),
-                                                           current_neighbors.cend(),
-                                                           is_next);
-                            if (next != current_neighbors.cend())
-                            {
-                                previous = current;
-                                current = *next;
-                            }
-                            else
-                            {
-                                break;
-                            }
-
-                        }
-
-                        n20_second = current;
-                    }
-
-                    const auto find_local_edge_for_global_edge = [this] (auto element_index, const Edge<I> & edge)
-                    {
-                        for (I i = 0; i < 3; ++i)
-                        {
-                            const auto a = elements()[element_index].vertex_indices[i];
-                            const auto b = elements()[element_index].vertex_indices[(i + 1) % 3];
-
-                            if (Edge<I>(a, b) == edge)
-                            {
-                                return i;
-                            }
-                        }
-
-                        return sentinel();
-                    };
-
-
-                    if (algo::contains(elements()[n20].vertex_indices, z0))
-                    {
-                        // n20 needs to be connected to the 'left' child,
-                        // and n20_second to the 'right' child
-
-                        left_neighbors.indices[1] = n20;
-                        right_neighbors.indices[0] = n20_second;
-
-
-                        const auto n20_local_edge = find_local_edge_for_global_edge(n20, Edge<I>(z0, midpoint_index));
-                        const auto n20_second_local_edge = find_local_edge_for_global_edge(n20_second, Edge<I>(z2, midpoint_index));
-                        assert(n20_local_edge != sentinel());
-                        assert(n20_second_local_edge != sentinel());
-                        _neighbors[n20].indices[n20_local_edge] = left_index;
-                        _neighbors[n20_second].indices[n20_second_local_edge] = right_index;
-                    }
-                    else
-                    {
-                        // The other way around
-                        left_neighbors.indices[1] = n20_second;
-                        right_neighbors.indices[0] = n20;
-
-                        const auto n20_local_edge = find_local_edge_for_global_edge(n20, Edge<I>(z2, midpoint_index));
-                        const auto n20_second_local_edge = find_local_edge_for_global_edge(n20_second, Edge<I>(z0, midpoint_index));
-                        assert(n20_local_edge != sentinel());
-                        assert(n20_second_local_edge != sentinel());
-                        _neighbors[n20].indices[n20_local_edge] = right_index;
-                        _neighbors[n20_second].indices[n20_second_local_edge] = left_index;
-                    }
-
                 }
 
                 update_neighbor_of(0, left_index);
