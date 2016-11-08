@@ -121,7 +121,7 @@ TEST(quasi_interpolator, verify_successful_compilation)
 
 RC_GTEST_PROP(quasi_interpolator_test, interpolator_is_identity_map_for_equal_coarse_and_fine, ())
 {
-    const auto mesh = *arbitrary_coarse_unit_square_mesh();
+    const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
     const auto N = mesh.num_vertices();
     const MatrixX<double> identity = MatrixX<double>::Identity(N, N);
     const MatrixX<double> I_H = crest::quasi_interpolator(mesh, mesh);
