@@ -139,7 +139,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
     const Eigen::MatrixXd Z_dense = Z;
 
     const auto max_abs = std::max(std::abs(Z_dense.maxCoeff()), std::abs(Z_dense.minCoeff()));
-    EXPECT_THAT(max_abs, Lt(1e-15));
+    RC_ASSERT(max_abs < 1e-14);
 }
 
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ())
