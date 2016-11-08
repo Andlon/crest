@@ -12,6 +12,18 @@ namespace crest {
             return std::find(c.begin(), c.end(), element) != c.end();
         };
 
+        // Returns the index of the first occurrence of element in the contiguous random-access container c.
+        // If the element does not exist, returns ~0u (the maximum unsigned value).
+        template <typename Container, typename Element>
+        size_t index_of(const Container & c, const Element & element)
+        {
+            const auto it = std::find(c.begin(), c.end(), element);
+
+            return it != c.end()
+                   ? it - c.begin()
+                   : ~0u;
+        };
+
         template <typename Container>
         Container sorted_unique(Container c)
         {
