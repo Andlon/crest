@@ -88,213 +88,244 @@ protected:
 TEST_F(linear_lagrangian_basis_test, assemble_mass_matrix_1_interior_node)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto assembly = basis.assemble();
 
-    EXPECT_THAT(basis.mass_matrix().rows(), Eq(1));
-    EXPECT_THAT(basis.mass_matrix().cols(), Eq(1));
-    EXPECT_THAT(basis.mass_matrix().coeff(0, 0), DoubleEq(1.0 / 6.0));
+    // For historical reasons, there's only the values for entries of the
+    // "interior" and "boundary" parts of the matrix available
+    const auto interior = mesh.compute_interior_vertices();
+    const auto interior_mass = sparse_submatrix(assembly.mass, interior, interior);
+
+    EXPECT_THAT(interior_mass.rows(), Eq(1));
+    EXPECT_THAT(interior_mass.cols(), Eq(1));
+    EXPECT_THAT(interior_mass.coeff(0, 0), DoubleEq(1.0 / 6.0));
+
+    const auto boundary = mesh.boundary_vertices();
+    const auto boundary_mass = sparse_submatrix(assembly.mass, interior, boundary);
+
+    Eigen::Matrix<double, 1, 4> expected_boundary_mass;
+    expected_boundary_mass << (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0);
+
+    EXPECT_THAT(boundary_mass.rows(), Eq(1));
+    EXPECT_THAT(boundary_mass.cols(), Eq(4));
+    EXPECT_THAT(boundary_mass, MatrixEq(expected_boundary_mass));
 }
 
 TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_1_interior_node)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto assembly = basis.assemble();
 
-    EXPECT_THAT(basis.stiffness_matrix().rows(), Eq(1));
-    EXPECT_THAT(basis.stiffness_matrix().cols(), Eq(1));
-    EXPECT_THAT(basis.stiffness_matrix().coeff(0, 0), DoubleEq(4.0));
+    // For historical reasons, there's only the values for entries of the
+    // "interior" and "boundary" parts of the matrix available
+    const auto interior = mesh.compute_interior_vertices();
+    const auto interior_stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
+
+    EXPECT_THAT(interior_stiffness.rows(), Eq(1));
+    EXPECT_THAT(interior_stiffness.cols(), Eq(1));
+    EXPECT_THAT(interior_stiffness.coeff(0, 0), DoubleEq(4.0));
+
+    const auto boundary = mesh.boundary_vertices();
+    const auto boundary_stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
+
+    Eigen::Matrix<double, 1, 4> expected_boundary_stiffness;
+    expected_boundary_stiffness << -1.0, -1.0, -1.0, -1.0;
+
+    EXPECT_THAT(boundary_stiffness.rows(), Eq(1));
+    EXPECT_THAT(boundary_stiffness.cols(), Eq(4));
+    EXPECT_THAT(boundary_stiffness, MatrixEq(expected_boundary_stiffness));
 }
 
-TEST_F(linear_lagrangian_basis_test, assemble_boundary_mass_matrix_1_interior_node)
-{
-    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
-
-    Eigen::Matrix<double, 1, 4> expected;
-    expected << (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0);
-
-    EXPECT_THAT(basis.boundary_mass_matrix().rows(), Eq(1));
-    EXPECT_THAT(basis.boundary_mass_matrix().cols(), Eq(4));
-    EXPECT_THAT(basis.boundary_mass_matrix(), MatrixEq(expected));
-}
-
-TEST_F(linear_lagrangian_basis_test, assemble_boundary_stiffness_matrix_1_interior_node)
-{
-    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
-
-    Eigen::Matrix<double, 1, 4> expected;
-    expected << -1.0, -1.0, -1.0, -1.0;
-
-    EXPECT_THAT(basis.boundary_stiffness_matrix().rows(), Eq(1));
-    EXPECT_THAT(basis.boundary_stiffness_matrix().cols(), Eq(4));
-    EXPECT_THAT(basis.boundary_stiffness_matrix(), MatrixEq(expected));
-}
 
 TEST_F(linear_lagrangian_basis_test, assemble_mass_matrix_5_interior_nodes)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto assembly = basis.assemble();
 
-    // The expected data is obtained through laborious semi-manual calculations,
-    // exploiting symmetry of the mesh to reduce work. I set up the integrals,
-    // and solved them with Mathematica.
-    const auto a = 1.0 / 16.0;
-    const auto b = 1.0 / 96.0;
-    const auto c = 1.0 / 96.0;
-    const auto d = 1.0 / 24.0;
+    const auto interior = mesh.compute_interior_vertices();
+    const auto boundary = mesh.boundary_vertices();
 
-    Eigen::Matrix<double, 5, 5> expected;
-    expected <<
-             a,    b,  c,    b,  0.0,
-            b,     a,  c,  0.0,    b,
-            c,     c,  d,    c,    c,
-            b,   0.0,  c,    a,    b,
-            0.0,   b,  c,    b,    a;
+    // For historical reasons, there's only the values for entries of the
+    // "interior" and "boundary" parts of the matrix available
 
-    EXPECT_THAT(basis.mass_matrix().rows(), Eq(5));
-    EXPECT_THAT(basis.mass_matrix().cols(), Eq(5));
-    EXPECT_THAT(basis.mass_matrix(), MatrixEq(expected));
+    {
+        const auto interior_mass = sparse_submatrix(assembly.mass, interior, interior);
+
+        // The expected data is obtained through laborious semi-manual calculations,
+        // exploiting symmetry of the mesh to reduce work. I set up the integrals,
+        // and solved them with Mathematica.
+        const auto a = 1.0 / 16.0;
+        const auto b = 1.0 / 96.0;
+        const auto c = 1.0 / 96.0;
+        const auto d = 1.0 / 24.0;
+
+        Eigen::Matrix<double, 5, 5> expected_interior;
+        expected_interior <<
+                          a,    b,  c,    b,  0.0,
+                b,     a,  c,  0.0,    b,
+                c,     c,  d,    c,    c,
+                b,   0.0,  c,    a,    b,
+                0.0,   b,  c,    b,    a;
+
+        EXPECT_THAT(interior_mass.rows(), Eq(5));
+        EXPECT_THAT(interior_mass.cols(), Eq(5));
+        EXPECT_THAT(interior_mass, MatrixEq(expected_interior));
+    }
+
+    {
+        const auto boundary_mass = sparse_submatrix(assembly.mass, interior, boundary);
+
+        const auto a = 1.0 / 96.0;
+        const auto b = 1.0 / 96.0;
+
+        Eigen::Matrix<double, 5, 8> expected_boundary;
+        expected_boundary.setZero();
+        expected_boundary(0, 1) = b;
+        expected_boundary(0, 2) = a;
+        expected_boundary(0, 4) = b;
+        expected_boundary(1, 0) = a;
+        expected_boundary(1, 1) = b;
+        expected_boundary(1, 3) = b;
+        expected_boundary(3, 4) = b;
+        expected_boundary(3, 6) = b;
+        expected_boundary(3, 7) = a;
+        expected_boundary(4, 3) = b;
+        expected_boundary(4, 5) = a;
+        expected_boundary(4, 6) = b;
+
+        EXPECT_THAT(boundary_mass.rows(), Eq(5));
+        EXPECT_THAT(boundary_mass.cols(), Eq(8));
+        EXPECT_THAT(boundary_mass, MatrixEq(expected_boundary));
+    }
 }
 
 TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_5_interior_nodes)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto assembly = basis.assemble();
+
+    const auto interior = mesh.compute_interior_vertices();
+    const auto boundary = mesh.boundary_vertices();
+
+    // For historical reasons, there's only the values for entries of the
+    // "interior" and "boundary" parts of the matrix available
 
     // The expected data is obtained through laborious semi-manual calculations,
     // exploiting symmetry of the mesh to reduce work. I set up the integrals,
     // and solved them with Mathematica.
-    const auto a = 4.0;
-    const auto b = 0.0;
-    const auto c = -1.0;
-    const auto d = 4.0;
 
-    Eigen::Matrix<double, 5, 5> expected;
-    expected <<
-             a,    b,  c,    b,  0.0,
-            b,     a,  c,  0.0,    b,
-            c,     c,  d,    c,    c,
-            b,   0.0,  c,    a,    b,
-            0.0,   b,  c,    b,    a;
+    {
+        const auto interior_stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
 
-    EXPECT_THAT(basis.stiffness_matrix().rows(), Eq(5));
-    EXPECT_THAT(basis.stiffness_matrix().cols(), Eq(5));
-    EXPECT_THAT(basis.stiffness_matrix(), MatrixEq(expected));
+        const auto a = 4.0;
+        const auto b = 0.0;
+        const auto c = -1.0;
+        const auto d = 4.0;
+
+        Eigen::Matrix<double, 5, 5> expected_interior;
+        expected_interior <<
+                 a,    b,  c,    b,  0.0,
+                b,     a,  c,  0.0,    b,
+                c,     c,  d,    c,    c,
+                b,   0.0,  c,    a,    b,
+                0.0,   b,  c,    b,    a;
+
+        EXPECT_THAT(interior_stiffness.rows(), Eq(5));
+        EXPECT_THAT(interior_stiffness.cols(), Eq(5));
+        EXPECT_THAT(interior_stiffness, MatrixEq(expected_interior));
+    }
+
+    {
+        const auto boundary_stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
+        const auto a = -1.0;
+        const auto b = -1.0;
+
+        Eigen::Matrix<double, 5, 8> expected_boundary;
+        expected_boundary.setZero();
+        expected_boundary(0, 1) = b;
+        expected_boundary(0, 2) = a;
+        expected_boundary(0, 4) = b;
+        expected_boundary(1, 0) = a;
+        expected_boundary(1, 1) = b;
+        expected_boundary(1, 3) = b;
+        expected_boundary(3, 4) = b;
+        expected_boundary(3, 6) = b;
+        expected_boundary(3, 7) = a;
+        expected_boundary(4, 3) = b;
+        expected_boundary(4, 5) = a;
+        expected_boundary(4, 6) = b;
+
+        EXPECT_THAT(boundary_stiffness.rows(), Eq(5));
+        EXPECT_THAT(boundary_stiffness.cols(), Eq(8));
+        EXPECT_THAT(boundary_stiffness, MatrixEq(expected_boundary));
+    }
+
+
 }
 
-TEST_F(linear_lagrangian_basis_test, assemble_boundary_mass_matrix_5_interior_nodes)
-{
-    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
-
-    // The expected data is obtained through laborious semi-manual calculations,
-    // exploiting symmetry of the mesh to reduce work. I set up the integrals,
-    // and solved them with Mathematica.
-    const auto a = 1.0 / 96.0;
-    const auto b = 1.0 / 96.0;
-
-    Eigen::Matrix<double, 5, 8> expected;
-    expected.setZero();
-    expected(0, 1) = b;
-    expected(0, 2) = a;
-    expected(0, 4) = b;
-    expected(1, 0) = a;
-    expected(1, 1) = b;
-    expected(1, 3) = b;
-    expected(3, 4) = b;
-    expected(3, 6) = b;
-    expected(3, 7) = a;
-    expected(4, 3) = b;
-    expected(4, 5) = a;
-    expected(4, 6) = b;
-
-    EXPECT_THAT(basis.boundary_mass_matrix().rows(), Eq(5));
-    EXPECT_THAT(basis.boundary_mass_matrix().cols(), Eq(8));
-    EXPECT_THAT(basis.boundary_mass_matrix(), MatrixEq(expected));
-}
-
-TEST_F(linear_lagrangian_basis_test, assemble_boundary_stiffness_matrix_5_interior_nodes)
-{
-    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
-
-    // The expected data is obtained through laborious semi-manual calculations,
-    // exploiting symmetry of the mesh to reduce work. I set up the integrals,
-    // and solved them with Mathematica.
-    const auto a = -1.0;
-    const auto b = -1.0;
-
-    Eigen::Matrix<double, 5, 8> expected;
-    expected.setZero();
-    expected(0, 1) = b;
-    expected(0, 2) = a;
-    expected(0, 4) = b;
-    expected(1, 0) = a;
-    expected(1, 1) = b;
-    expected(1, 3) = b;
-    expected(3, 4) = b;
-    expected(3, 6) = b;
-    expected(3, 7) = a;
-    expected(4, 3) = b;
-    expected(4, 5) = a;
-    expected(4, 6) = b;
-
-    EXPECT_THAT(basis.boundary_stiffness_matrix().rows(), Eq(5));
-    EXPECT_THAT(basis.boundary_stiffness_matrix().cols(), Eq(8));
-    EXPECT_THAT(basis.boundary_stiffness_matrix(), MatrixEq(expected));
-}
 
 TEST_F(linear_lagrangian_basis_test, compute_load_zero_1_interior_node)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
-
-    const auto f = [] (auto, auto) { return 0.0; };
-
-    Eigen::VectorXd expected(1);
-    expected.setZero();
-
-    EXPECT_THAT(basis.compute_load<1>(f), MatrixEq(expected));
-}
-
-TEST_F(linear_lagrangian_basis_test, compute_load_zero_5_interior_nodes)
-{
-    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
 
     const auto f = [] (auto, auto) { return 0.0; };
 
     Eigen::VectorXd expected(5);
     expected.setZero();
 
-    EXPECT_THAT(basis.compute_load<1>(f), MatrixEq(expected));
+    EXPECT_THAT(basis.load<1>(f), MatrixEq(expected));
+}
+
+TEST_F(linear_lagrangian_basis_test, compute_load_zero_5_interior_nodes)
+{
+    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+
+    const auto f = [] (auto, auto) { return 0.0; };
+
+    Eigen::VectorXd expected(13);
+    expected.setZero();
+
+    EXPECT_THAT(basis.load<1>(f), MatrixEq(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, compute_load_one_1_interior_node)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto interior = mesh.compute_interior_vertices();
 
     const auto f = [] (auto, auto) { return 1.0; };
+
+    // For historical reasons, we only have expected values for the interior nodes
+    const auto load = basis.load<1>(f);
+    const auto load_interior = submatrix(load, interior, { 0 });
 
     Eigen::VectorXd expected(1);
     expected << (1.0 / 3.0);
 
-    EXPECT_THAT(basis.compute_load<1>(f), MatrixEq(expected));
+    EXPECT_THAT(load_interior, MatrixEq(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, compute_quadratic_function_5_interior_node)
 {
     const auto mesh = IndexedMesh<double, int>(vertices_unit_square_5_interior_nodes, elements_unit_square_5_interior_nodes);
-    const auto basis = LagrangeBasis2d::assemble_from_mesh(mesh);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+    const auto interior = mesh.compute_interior_vertices();
 
     const auto f = [] (auto x, auto y) { return (x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) - 2; };
+
+    const auto load = basis.load<10>(f);
+    const auto load_interior = submatrix(load, interior, { 0 });
 
     const auto a = -15.0 / 64.0;
     const auto b = -79.0 / 480.0;
     Eigen::VectorXd expected(5);
     expected << a, a, b, a, a;
 
-    EXPECT_THAT(basis.compute_load<10>(f), MatrixEq(expected));
+    EXPECT_THAT(load_interior, MatrixEq(expected));
 }

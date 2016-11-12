@@ -9,49 +9,30 @@
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/util/eigen_extensions.hpp>
 #include <crest/quadrature/triquad.hpp>
+#include <crest/basis/basis.hpp>
 
 namespace crest
 {
-    /**
-     * Represents a linear Lagrangian basis for a 2D mesh. It is assumed that the boundary conditions imposed on the
-     * finite element space spanned by the basis are homogeneous Dirichlet conditions. However, inhomogeneous
-     * Dirichlet boundary conditions can be accomodated by writing the weak formulation in terms of
-     * a sum of a homogeneous solution and a known function. The boundary_ versions of the stiffness_matrix and
-     * mass_matrix functions are provided with this in mind.
-     */
-    class LagrangeBasis2d
+    template <typename Scalar>
+    class LagrangeBasis2d : public Basis<Scalar, LagrangeBasis2d<Scalar>>
     {
     public:
-        Eigen::SparseMatrix<double> stiffness_matrix() const { return _stiffness_matrix; }
+        explicit LagrangeBasis2d(const IndexedMesh<Scalar, int> & mesh) : _mesh(mesh) {}
 
-        Eigen::SparseMatrix<double> mass_matrix() const { return _mass_matrix; }
+        virtual Assembly<Scalar> assemble() const override;
 
-        Eigen::SparseMatrix<double> boundary_stiffness_matrix() const { return _boundary_stiffness_matrix; }
-
-        Eigen::SparseMatrix<double> boundary_mass_matrix() const { return _boundary_mass_matrix; }
-
-        size_t ndof() const { return _mesh.num_interior_vertices(); }
+        virtual int num_dof() const override { return _mesh.num_vertices(); }
 
         template <typename Function2d>
-        Eigen::VectorXd interpolate_free_nodes(const Function2d & f) const;
+        VectorX<Scalar> interpolate(const Function2d &f) const;
 
-        template <int Strength=2, typename Function2d>
-        Eigen::VectorXd compute_load(const Function2d & f) const;
+        template <int QuadStrength, typename Function2d>
+        VectorX<Scalar> load(const Function2d &f) const;
 
-        static LagrangeBasis2d assemble_from_mesh(IndexedMesh<double, int> mesh);
-
+        template <int QuadStrength, typename Function2d>
+        Scalar error(const Function2d &f, const VectorX<Scalar> & weights, Norm norm) const;
     private:
-        explicit LagrangeBasis2d(IndexedMesh<double, int> mesh,
-                                 Eigen::SparseMatrix<double> mass_interior_matrix,
-                                 Eigen::SparseMatrix<double> mass_boundary_matrix,
-                                 Eigen::SparseMatrix<double> stiffness_interior_matrix,
-                                 Eigen::SparseMatrix<double> stiffness_boundary_matrix);
-
-        IndexedMesh<double, int> _mesh;
-        Eigen::SparseMatrix<double> _mass_matrix;
-        Eigen::SparseMatrix<double> _boundary_mass_matrix;
-        Eigen::SparseMatrix<double> _stiffness_matrix;
-        Eigen::SparseMatrix<double> _boundary_stiffness_matrix;
+        const IndexedMesh<double, int> & _mesh;
     };
 
     namespace detail
@@ -65,15 +46,6 @@ namespace crest
         template <typename Scalar>
         assembly_triplets<Scalar> assemble_linear_lagrangian_stiffness_triplets(
                 const crest::IndexedMesh<Scalar, int> &mesh);
-
-        struct interior_boundary_matrices {
-            Eigen::SparseMatrix<double> interior_matrix;
-            Eigen::SparseMatrix<double> boundary_matrix;
-        };
-
-        interior_boundary_matrices interior_and_boundary_matrices_from_triplets(
-                std::vector<Eigen::Triplet<double>> triplets,
-                const IndexedMesh<double, int> & mesh);
     }
 
     /*
@@ -153,58 +125,27 @@ namespace crest
         };
     }
 
-    inline LagrangeBasis2d LagrangeBasis2d::assemble_from_mesh(IndexedMesh<double, int> mesh)
+    template <typename Scalar>
+    Assembly<Scalar> LagrangeBasis2d<Scalar>::assemble() const
     {
-        const auto triplets = detail::assemble_linear_lagrangian_stiffness_triplets(mesh);
+        const auto triplets = detail::assemble_linear_lagrangian_stiffness_triplets(_mesh);
 
-        const auto interior_nodes = mesh.compute_interior_vertices();
-        const auto & boundary_nodes = mesh.boundary_vertices();
+        Assembly<Scalar> assembly;
 
         // Stiffness
-        Eigen::SparseMatrix<double> full_stiffness_mat(mesh.num_vertices(), mesh.num_vertices());
-        full_stiffness_mat.setFromTriplets(triplets.stiffness_triplets.cbegin(), triplets.stiffness_triplets.cend());
-        Eigen::SparseMatrix<double> interior_stiffness_mat = sparse_submatrix(full_stiffness_mat,
-                                                                              interior_nodes,
-                                                                              interior_nodes);
-        Eigen::SparseMatrix<double> boundary_stiffness_mat = sparse_submatrix(full_stiffness_mat,
-                                                                              interior_nodes,
-                                                                              boundary_nodes);
+        assembly.stiffness = Eigen::SparseMatrix<Scalar>(num_dof(), num_dof());
+        assembly.stiffness.setFromTriplets(triplets.stiffness_triplets.cbegin(), triplets.stiffness_triplets.cend());
 
         // Mass
-        Eigen::SparseMatrix<double> full_mass_mat(mesh.num_vertices(), mesh.num_vertices());
-        full_mass_mat.setFromTriplets(triplets.mass_triplets.cbegin(), triplets.mass_triplets.cend());
-        Eigen::SparseMatrix<double> interior_mass_mat = sparse_submatrix(full_mass_mat,
-                                                                         interior_nodes,
-                                                                         interior_nodes);
-        Eigen::SparseMatrix<double> boundary_mass_mat = sparse_submatrix(full_mass_mat,
-                                                                         interior_nodes,
-                                                                         boundary_nodes);
+        assembly.mass = Eigen::SparseMatrix<Scalar>(num_dof(), num_dof());
+        assembly.mass.setFromTriplets(triplets.mass_triplets.cbegin(), triplets.mass_triplets.cend());
 
-        return LagrangeBasis2d(std::move(mesh),
-                               std::move(interior_mass_mat),
-                               std::move(boundary_mass_mat),
-                               std::move(interior_stiffness_mat),
-                               std::move(boundary_stiffness_mat)
-        );
+        return assembly;
     }
 
-    inline LagrangeBasis2d::LagrangeBasis2d(IndexedMesh<double, int> mesh,
-                                            Eigen::SparseMatrix<double> mass_interior_matrix,
-                                            Eigen::SparseMatrix<double> mass_boundary_matrix,
-                                            Eigen::SparseMatrix<double> stiffness_interior_matrix,
-                                            Eigen::SparseMatrix<double> stiffness_boundary_matrix)
-            : _mesh(std::move(mesh)),
-              _mass_matrix(std::move(mass_interior_matrix)),
-              _boundary_mass_matrix(std::move(mass_boundary_matrix)),
-              _stiffness_matrix(std::move(stiffness_interior_matrix)),
-              _boundary_stiffness_matrix(std::move(stiffness_boundary_matrix))
-    {
-
-    }
-
-
-    template <int Strength, typename Function2d>
-    Eigen::VectorXd LagrangeBasis2d::compute_load(const Function2d & f) const
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d>
+    VectorX<Scalar> LagrangeBasis2d<Scalar>::load(const Function2d & f) const
     {
         Eigen::VectorXd load(_mesh.num_vertices());
         load.setZero();
@@ -232,17 +173,17 @@ namespace crest
 
             const auto absdet = transform.absolute_determinant();
 
-            load(z0) += absdet * triquad_ref<Strength, double>(
+            load(z0) += absdet * triquad_ref<QuadStrength, double>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * a_basis(x, y); }
             );
-            load(z1) += absdet * triquad_ref<Strength, double>(
+            load(z1) += absdet * triquad_ref<QuadStrength, double>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * b_basis(x, y); }
             );
-            load(z2) += absdet * triquad_ref<Strength, double>(
+            load(z2) += absdet * triquad_ref<QuadStrength, double>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * c_basis(x, y); }
             );
         }
 
-        return submatrix(load, _mesh.compute_interior_vertices(), { 0 });
+        return load;
     }
 }
