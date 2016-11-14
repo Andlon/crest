@@ -186,4 +186,18 @@ namespace crest
 
         return load;
     }
+
+    template <typename Scalar>
+    template <typename Function2d>
+    VectorX<Scalar> LagrangeBasis2d<Scalar>::interpolate(const Function2d & f) const
+    {
+        // Simple nodal interpolation
+        auto result = VectorX<Scalar>(_mesh.num_vertices());
+        for (int i = 0; i < _mesh.num_vertices(); ++i)
+        {
+            const auto vertex = _mesh.vertices()[i];
+            result(i) = f(vertex.x, vertex.y);
+        }
+        return result;
+    }
 }

@@ -329,3 +329,19 @@ TEST_F(linear_lagrangian_basis_test, compute_quadratic_function_5_interior_node)
 
     EXPECT_THAT(load_interior, MatrixEq(expected));
 }
+
+TEST_F(linear_lagrangian_basis_test, interpolate_1_interior_node)
+{
+    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_1_interior_node, elements_unit_square_1_interior_node);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+
+    const auto f = [] (auto x, auto y) { return x * x + y * y + 1.0; };
+
+    const auto weights = basis.interpolate(f);
+
+    EXPECT_THAT(weights(0), DoubleEq(1.0));
+    EXPECT_THAT(weights(1), DoubleEq(2.0));
+    EXPECT_THAT(weights(2), DoubleEq(3.0));
+    EXPECT_THAT(weights(3), DoubleEq(2.0));
+    EXPECT_THAT(weights(4), DoubleEq(1.5));
+}
