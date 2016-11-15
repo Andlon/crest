@@ -6,6 +6,8 @@
 #include <crest/geometry/vertex.hpp>
 #include <crest/quadrature/rules.hpp>
 
+#include <Eigen/Dense>
+
 namespace crest
 {
     template <typename Scalar>
@@ -16,6 +18,8 @@ namespace crest
 
         Vertex<Scalar> transform_from_reference(const Scalar & x, const Scalar & y) const;
         Scalar absolute_determinant() const { return _absdet; }
+
+        Eigen::Matrix<Scalar, 2, 2> jacobian() const;
 
     private:
         Vertex<Scalar> _v0;
@@ -30,7 +34,7 @@ namespace crest
                                                               Vertex<S> v2)
             : _v0(v0), _v1(v1), _v2(v2)
     {
-        _absdet = (1.0 / 4.0) * std::abs(_v1.x * _v2.y - _v1.y * _v2.x);
+        _absdet = S(1.0 / 4.0) * std::abs(_v1.x * _v2.y - _v1.y * _v2.x);
     }
 
     /**
@@ -49,8 +53,19 @@ namespace crest
     Vertex<S> ReferenceTriangleTransform<S>::transform_from_reference(const S & x, const S & y) const
     {
 
-        return 0.5 * (_v0 + x * _v1 + y * _v2);
+        return S(0.5) * (_v0 + x * _v1 + y * _v2);
     }
+
+    template <typename Scalar>
+    Eigen::Matrix<Scalar, 2, 2> ReferenceTriangleTransform<Scalar>::jacobian() const
+    {
+        Eigen::Matrix<Scalar, 2, 2> J;
+        J(0, 0) = Scalar(0.5) * _v1.x;
+        J(0, 1) = Scalar(0.5) * _v2.x;
+        J(1, 0) = Scalar(0.5) * _v1.y;
+        J(1, 1) = Scalar(0.5) * _v2.y;
+        return J;
+    };
 
     /**
      *

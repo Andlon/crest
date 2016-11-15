@@ -51,7 +51,7 @@ namespace crest
         template <typename Function2d>
         VectorX<Scalar> interpolate(const Function2d &f) const
         {
-            return static_cast<Impl *>(this)->interpolate<Function2d>(f);
+            return static_cast<const Impl *>(this)->interpolate<Function2d>(f);
         }
 
         /**
@@ -70,13 +70,13 @@ namespace crest
         template <int QuadStrength, typename Function2d>
         VectorX<Scalar> load(const Function2d &f) const
         {
-            return static_cast<Impl *>(this)->load<QuadStrength, Function2d>(f);
+            return static_cast<const Impl *>(this)->load<QuadStrength, Function2d>(f);
         };
 
         /**
          * Computes an approximation of the error between a continuous function f
          * and a function g in the space spanned by the basis given by
-         * its basis weights in the specified norm.
+         * its basis weights in the L2 norm.
          *
          * More precisely, if g = sum w_i b_i for all degrees of freedom i,
          * where w_i is given by weights(i) and b_i denotes the basis function
@@ -84,16 +84,98 @@ namespace crest
          *
          * ||f - g||
          *
-         * in the specified norm.
+         * in the L2 norm.
          *
-         * Note that for implementers, only Norm::L2 and Norm::H1Semi needs
-         * to be implemented, as the base class is able to compute Norm::H1 from these.
          * @param f
          * @param weights
          * @param norm
          * @return
          */
         template <int QuadStrength, typename Function2d>
-        Scalar error(const Function2d &f, const VectorX<Scalar> & weights, Norm norm) const;
+        Scalar error_l2(const Function2d &f, const VectorX<Scalar> & weights) const;
+
+        /**
+         * Computes an approximation of the error between a continuous function f
+         * and a function g in the space spanned by the basis given by
+         * its basis weights in the H1 semi-norm.
+         *
+         * More precisely, if g = sum w_i b_i for all degrees of freedom i,
+         * where w_i is given by weights(i) and b_i denotes the basis function
+         * associated with the degree of freedom i, then this function computes
+         *
+         * ||f - g||
+         *
+         * in the H1 semi-norm, which is equivalent to
+         *
+         * || grad(f) - grad(g) ||
+         *
+         * in the L2 norm. Note that one specifies the derivatives f_x and f_y
+         * for the computation of the H1 semi-norm.
+         *
+         * @param f
+         * @param weights
+         * @param norm
+         * @return
+         */
+        template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+        Scalar error_h1_semi(const Function2d_x & f_x,
+                             const Function2d_y & f_y,
+                             const VectorX<Scalar> & weights) const;
+
+        /**
+         * Computes an approximation of the error between a continuous function f
+         * and a function g in the space spanned by the basis given by
+         * its basis weights in the H1 norm.
+         *
+         * More precisely, if g = sum w_i b_i for all degrees of freedom i,
+         * where w_i is given by weights(i) and b_i denotes the basis function
+         * associated with the degree of freedom i, then this function computes
+         *
+         * ||f - g||
+         *
+         * in the H1 norm. Note that the computation requires f, as well as its
+         * spatial derivatives f_x and f_y.
+         *
+         * Also note that implementers of subclasses do not need to reimplement this
+         * function, as it is implemented in terms of error_l2 and error_h1_semi.
+         *
+         * @param f
+         * @param weights
+         * @param norm
+         * @return
+         */
+        template <int QuadStrength, typename Function2d, typename Function2d_x, typename Function2d_y>
+        Scalar error_h1(const Function2d & f,
+                        const Function2d_x & f_x,
+                        const Function2d_y & f_y,
+                        const VectorX<Scalar> & weights) const;
+    };
+
+    template <typename Scalar, typename Impl>
+    template <int QuadStrength, typename Function2d>
+    Scalar Basis<Scalar, Impl>::error_l2(const Function2d & f, const VectorX<Scalar> & weights) const
+    {
+        return static_cast<const Impl *>(this)->error_l2<QuadStrength>(f, weights);
+    };
+
+    template <typename Scalar, typename Impl>
+    template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+    Scalar Basis<Scalar, Impl>::error_h1_semi(const Function2d_x & f_x,
+                                              const Function2d_y & f_y,
+                                              const VectorX<Scalar> & weights) const
+    {
+        return static_cast<const Impl *>(this)->error_h1_semi<QuadStrength>(f_x, f_y, weights);
+    };
+
+    template <typename Scalar, typename Impl>
+    template <int QuadStrength, typename Function2d, typename Function2d_x, typename Function2d_y>
+    Scalar Basis<Scalar, Impl>::error_h1(const Function2d & f,
+                                         const Function2d_x & f_x,
+                                         const Function2d_y & f_y,
+                                         const VectorX<Scalar> & weights) const
+    {
+        const auto l2 = error_l2<QuadStrength>(f, weights);
+        const auto h1_semi = error_h1_semi<QuadStrength>(f_x, f_y, weights);
+        return std::sqrt(l2 * l2 + h1_semi * h1_semi);
     };
 }

@@ -22,6 +22,18 @@ class linear_lagrangian_basis_test : public ::testing::Test
 protected:
     virtual void SetUp()
     {
+        vertices_unit_square_basic = {
+                Vertex(0.0, 0.0),
+                Vertex(0.0, 1.0),
+                Vertex(1.0, 1.0),
+                Vertex(1.0, 0.0)
+        };
+
+        elements_unit_square_basic = {
+                Element({3, 0, 1}),
+                Element({1, 2, 3})
+        };
+
         vertices_unit_square_1_interior_node = {
                 Vertex(0.0, 0.0),
                 Vertex(1.0, 0.0),
@@ -73,6 +85,10 @@ protected:
                 Element({6, 8, 9})
         };
     }
+
+    // The simplest possible triangulation of the unit square
+    std::vector<Vertex>     vertices_unit_square_basic;
+    std::vector<Element>    elements_unit_square_basic;
 
     std::vector<Vertex>     vertices_unit_square_1_interior_node;
     std::vector<Element>    elements_unit_square_1_interior_node;
@@ -227,7 +243,7 @@ TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_5_interior_nodes)
 
         Eigen::Matrix<double, 5, 5> expected_interior;
         expected_interior <<
-                 a,    b,  c,    b,  0.0,
+                          a,    b,  c,    b,  0.0,
                 b,     a,  c,  0.0,    b,
                 c,     c,  d,    c,    c,
                 b,   0.0,  c,    a,    b,
@@ -344,4 +360,52 @@ TEST_F(linear_lagrangian_basis_test, interpolate_1_interior_node)
     EXPECT_THAT(weights(2), DoubleEq(3.0));
     EXPECT_THAT(weights(3), DoubleEq(2.0));
     EXPECT_THAT(weights(4), DoubleEq(1.5));
+}
+
+TEST_F(linear_lagrangian_basis_test, error_l2_basic_unit_square)
+{
+    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_basic, elements_unit_square_basic);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+
+    const auto u = [] (auto x, auto y) { return x * x + y * y; };
+
+    VectorX<double> weights(4);
+    weights << 0.0, 1.0, 2.0, 1.0;
+
+    const auto expected_error = std::sqrt(11.0 / 90.0);
+
+    EXPECT_THAT(basis.error_l2<10>(u, weights), DoubleEq(expected_error));
+}
+
+TEST_F(linear_lagrangian_basis_test, error_h1_semi_basic_unit_square)
+{
+    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_basic, elements_unit_square_basic);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+
+    const auto u_x = [] (auto x, auto  ) { return 2.0 * x; };
+    const auto u_y = [] (auto  , auto y) { return 2.0 * y; };
+
+    VectorX<double> weights(4);
+    weights << 0.0, 1.0, 2.0, 1.0;
+
+    const auto expected_error = std::sqrt(2.0 / 3.0);
+
+    EXPECT_THAT(basis.error_h1_semi<10>(u_x, u_y, weights), DoubleEq(expected_error));
+}
+
+TEST_F(linear_lagrangian_basis_test, error_h1_basic_unit_square)
+{
+    const auto mesh = IndexedMesh<double, int>(vertices_unit_square_basic, elements_unit_square_basic);
+    const auto basis = LagrangeBasis2d<double>(mesh);
+
+    const auto u = [] (auto x, auto y) { return x * x + y * y; };
+    const auto u_x = [] (auto x, auto  ) { return 2.0 * x; };
+    const auto u_y = [] (auto  , auto y) { return 2.0 * y; };
+
+    VectorX<double> weights(4);
+    weights << 0.0, 1.0, 2.0, 1.0;
+
+    const auto expected_error = std::sqrt(11.0 / 90.0 + 2.0 / 3.0);
+
+    EXPECT_THAT(basis.error_h1<10>(u, u_x, u_y, weights), DoubleEq(expected_error));
 }

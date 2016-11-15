@@ -30,7 +30,13 @@ namespace crest
         VectorX<Scalar> load(const Function2d &f) const;
 
         template <int QuadStrength, typename Function2d>
-        Scalar error(const Function2d &f, const VectorX<Scalar> & weights, Norm norm) const;
+        Scalar error_l2(const Function2d &f, const VectorX<Scalar> & weights) const;
+
+        template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+        Scalar error_h1_semi(const Function2d_x & f_x,
+                             const Function2d_y & f_y,
+                             const VectorX<Scalar> & weights) const;
+
     private:
         const IndexedMesh<double, int> & _mesh;
     };
@@ -151,9 +157,9 @@ namespace crest
         load.setZero();
 
         // See triquad.hpp for the mapping used here
-        const auto a_basis = [] (auto x, auto  ) { return 0.5 * x + 0.5; };
-        const auto b_basis = [] (auto  , auto y) { return 0.5 * y + 0.5; };
-        const auto c_basis = [] (auto x, auto y) { return 0.5 * (-x - y); };
+        const auto a_basis = [] (auto x, auto  ) { return Scalar(0.5) * x + Scalar(0.5); };
+        const auto b_basis = [] (auto  , auto y) { return Scalar(0.5) * y + Scalar(0.5); };
+        const auto c_basis = [] (auto x, auto y) { return Scalar(0.5) * (-x - y); };
 
         for (const auto element : _mesh.elements())
         {
@@ -173,13 +179,13 @@ namespace crest
 
             const auto absdet = transform.absolute_determinant();
 
-            load(z0) += absdet * triquad_ref<QuadStrength, double>(
+            load(z0) += absdet * triquad_ref<QuadStrength, Scalar>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * a_basis(x, y); }
             );
-            load(z1) += absdet * triquad_ref<QuadStrength, double>(
+            load(z1) += absdet * triquad_ref<QuadStrength, Scalar>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * b_basis(x, y); }
             );
-            load(z2) += absdet * triquad_ref<QuadStrength, double>(
+            load(z2) += absdet * triquad_ref<QuadStrength, Scalar>(
                     [&] (auto x, auto y) { return transformed_f(x, y) * c_basis(x, y); }
             );
         }
@@ -200,4 +206,124 @@ namespace crest
         }
         return result;
     }
+
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d>
+    Scalar LagrangeBasis2d<Scalar>::error_l2(const Function2d &f, const VectorX<Scalar> & weights) const
+    {
+        Scalar error_squared = Scalar(0);
+
+        // See triquad.hpp for the mapping used here
+        const auto basis0 = [] (auto x, auto  ) { return Scalar(0.5) * x + Scalar(0.5); };
+        const auto basis1 = [] (auto  , auto y) { return Scalar(0.5) * y + Scalar(0.5); };
+        const auto basis2 = [] (auto x, auto y) { return Scalar(0.5) * (-x - y); };
+
+        for (const auto element : _mesh.elements())
+        {
+            const auto z0 = element.vertex_indices[0];
+            const auto z1 = element.vertex_indices[1];
+            const auto z2 = element.vertex_indices[2];
+
+            const auto w0 = weights(z0);
+            const auto w1 = weights(z1);
+            const auto w2 = weights(z2);
+
+            const auto & a = _mesh.vertices()[z0];
+            const auto & b = _mesh.vertices()[z1];
+            const auto & c = _mesh.vertices()[z2];
+            const auto transform = triquad_transform(a, b, c);
+            const auto f_ref = [&f, &transform] (auto x, auto y)
+            {
+                const auto coords = transform.transform_from_reference(x, y);
+                return f(coords.x, coords.y);
+            };
+
+            // Computes the square of the difference of f and f_h in the reference triangle
+            const auto diff_ref_squared = [&] (auto x, auto y)
+            {
+                const auto f_h_ref = w0 * basis0(x, y) +
+                                     w1 * basis1(x, y) +
+                                     w2 * basis2(x, y);
+
+                const auto diff = f_ref(x, y) - f_h_ref;
+                return diff * diff;
+            };
+
+            const auto absdet = transform.absolute_determinant();
+            error_squared += absdet * triquad_ref<QuadStrength, Scalar>(diff_ref_squared);
+        }
+
+        return std::sqrt(error_squared);
+    };
+
+
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+    Scalar LagrangeBasis2d<Scalar>::error_h1_semi(const Function2d_x & f_x,
+                                                  const Function2d_y & f_y,
+                                                  const VectorX<Scalar> & weights) const
+    {
+        Scalar error_squared = Scalar(0);
+
+        // See triquad.hpp for the mapping used here
+        const auto basis0_x = Scalar(0.5);
+        const auto basis0_y = Scalar(0.0);
+        const auto basis1_x = Scalar(0.0);
+        const auto basis1_y = Scalar(0.5);
+        const auto basis2_x = Scalar(-0.5);
+        const auto basis2_y = Scalar(-0.5);
+
+        for (const auto element : _mesh.elements())
+        {
+            const auto z0 = element.vertex_indices[0];
+            const auto z1 = element.vertex_indices[1];
+            const auto z2 = element.vertex_indices[2];
+
+            const auto w0 = weights(z0);
+            const auto w1 = weights(z1);
+            const auto w2 = weights(z2);
+
+            const auto & a = _mesh.vertices()[z0];
+            const auto & b = _mesh.vertices()[z1];
+            const auto & c = _mesh.vertices()[z2];
+            const auto transform = triquad_transform(a, b, c);
+
+            const auto f_grad_ref = [&f_x, &f_y, &transform] (auto x, auto y)
+            {
+                const auto coords = transform.transform_from_reference(x, y);
+                Eigen::Matrix<Scalar, 2, 1> grad;
+                grad(0) = f_x(coords.x, coords.y);
+                grad(1) = f_y(coords.x, coords.y);
+                return grad;
+            };
+
+            // Since we have linear elements, the gradients are constants
+            Eigen::Matrix<Scalar, 2, 1> f_h_grad_ref;
+            f_h_grad_ref(0) = w0 * basis0_x +
+                              w1 * basis1_x +
+                              w2 * basis2_x;
+            f_h_grad_ref(1) = w0 * basis0_y +
+                              w1 * basis1_y +
+                              w2 * basis2_y;
+
+            // Due to change of variables, we have to left-apply J^-T
+            const auto J_inv_t = transform.jacobian().inverse().transpose();
+            const Eigen::Matrix<Scalar, 2, 1> f_h_grad_ref_transformed = J_inv_t * f_h_grad_ref;
+
+            // Computes the square of the difference of grad(f) and grad(f_h)
+            // in the reference triangle
+            const auto diff_squared = [&] (auto x, auto y)
+            {
+                // Note that J_inv_t cancels with J_t for f_grad_ref
+                const auto diff = f_grad_ref(x, y) - f_h_grad_ref_transformed;
+                return diff.dot(diff);
+            };
+
+            const auto absdet = transform.absolute_determinant();
+            error_squared += absdet * triquad_ref<QuadStrength, Scalar>(diff_squared);
+
+        }
+
+        return std::sqrt(error_squared);
+    };
 }
