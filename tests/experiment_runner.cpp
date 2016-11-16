@@ -2,7 +2,7 @@
 
 #include <crest/wave/constraints.hpp>
 
-#include <crest/basis/linear_lagrangian_basis.hpp>
+#include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/geometry/refinement.hpp>
 #include <crest/quadrature/simpsons.hpp>
 

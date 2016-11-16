@@ -3,7 +3,7 @@
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/geometry/mesh_algorithms.hpp>
 #include <crest/basis/quasi_interpolation.hpp>
-#include <crest/basis/linear_lagrangian_basis.hpp>
+#include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/util/eigen_extensions.hpp>
 
 #include <Eigen/Sparse>

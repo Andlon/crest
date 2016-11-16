@@ -13,6 +13,9 @@
 
 namespace crest
 {
+    /**
+     * A standard linear Lagrangian basis
+     */
     template <typename Scalar>
     class LagrangeBasis2d : public Basis<Scalar, LagrangeBasis2d<Scalar>>
     {
