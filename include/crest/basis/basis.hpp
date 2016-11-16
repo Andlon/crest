@@ -27,6 +27,9 @@ namespace crest
     public:
         virtual ~Basis() {}
 
+        virtual std::vector<int> interior_nodes() const = 0;
+        virtual std::vector<int> boundary_nodes() const = 0;
+
         virtual Assembly<Scalar> assemble() const = 0;
 
         /**

@@ -55,3 +55,7 @@ set_property(TARGET pycrest PROPERTY CXX_STANDARD 14)
 # Simple executables which can be used for profiling with valgrind
 add_executable(bench_bisect_to_tolerance bench/bisect_to_tolerance.cpp)
 set_property(TARGET bench_bisect_to_tolerance PROPERTY CXX_STANDARD 14)
+
+# Run a set of predefined experiments. Used for testing the library
+add_executable(experiments tests/experiment_runner.cpp)
+set_property(TARGET experiments PROPERTY CXX_STANDARD 14)

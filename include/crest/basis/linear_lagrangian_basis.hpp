@@ -19,6 +19,9 @@ namespace crest
     public:
         explicit LagrangeBasis2d(const IndexedMesh<Scalar, int> & mesh) : _mesh(mesh) {}
 
+        virtual std::vector<int> boundary_nodes() const override { return _mesh.boundary_vertices(); }
+        virtual std::vector<int> interior_nodes() const override { return _mesh.compute_interior_vertices(); }
+
         virtual Assembly<Scalar> assemble() const override;
 
         virtual int num_dof() const override { return _mesh.num_vertices(); }
