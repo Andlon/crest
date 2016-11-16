@@ -8,7 +8,7 @@ set(UNIT_TEST_SOURCES
         tests/unit/geometry/indexed_mesh.cpp
         tests/unit/util/vertex_matchers.cpp
         tests/unit/quadrature/triquad.cpp
-        tests/unit/basis/linear_lagrangian_basis.cpp
+        tests/unit/basis/lagrange_basis2d.cpp
         tests/unit/basis/quasi_interpolation.cpp
         tests/unit/basis/homogenized_basis.cpp
         tests/unit/util/eigen_extensions.cpp
@@ -17,7 +17,7 @@ set(UNIT_TEST_SOURCES
         tests/unit/geometry/mesh_algorithms.cpp)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(GCC_CXX_FLAGS "-Wall -Wextra -Werror")
+    set(GCC_CXX_FLAGS "-Wall -Wextra -Werror -march=native")
 
     set(GCC_SANITIZE_FLAGS "-fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined -fno-sanitize-recover")
     set(GCC_STD_DEBUG "-D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
