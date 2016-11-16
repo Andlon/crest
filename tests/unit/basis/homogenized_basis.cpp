@@ -4,7 +4,7 @@
 
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/geometry/refinement.hpp>
-#include <crest/basis/linear_lagrangian_basis.hpp>
+#include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/basis/homogenized_basis.hpp>
 
 #include <util/eigen_matchers.hpp>
