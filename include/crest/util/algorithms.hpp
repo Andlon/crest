@@ -54,6 +54,32 @@ namespace crest {
             });
         };
 
+        /**
+         * Returns a vector filled with consecutive integers in the range [start, end).
+         * @param start
+         * @param end
+         * @return
+         */
+        template <typename Integer>
+        std::vector<Integer> integer_range(Integer start, Integer end)
+        {
+            // Of course, this vector is a waste of memory, and one would be better off with some
+            // range iterator type, but for now this is simpler.
+
+            if (end < start)
+            {
+                throw std::logic_error("end must be greater or equal to start.");
+            }
+
+            std::vector<int> v;
+            v.reserve(end - start);
+            for (auto i = start; i < end; ++i)
+            {
+                v.push_back(i);
+            }
+            return v;
+        };
+
     }
 
 }

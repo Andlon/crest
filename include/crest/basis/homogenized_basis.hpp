@@ -184,37 +184,51 @@ namespace crest
             assert(std::is_sorted(coarse_patch.cbegin(), coarse_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
 
+            // Recall that the global interpolator maps only to the coarse interior, so we must
+            // with exclude coarse boundary nodes from the assembled system
             const auto coarse_patch_vertices = patch_vertices(coarse_mesh, coarse_patch);
-            const auto I_H_local = sparse_submatrix(global_interpolator,
-                                                    coarse_patch_vertices,
-                                                    fine_patch_interior);
+            std::vector<int> coarse_dof;
+            std::set_difference(coarse_patch_vertices.begin(), coarse_patch_vertices.end(),
+                                coarse_mesh.boundary_vertices().begin(), coarse_mesh.boundary_vertices().end(),
+                                std::back_inserter(coarse_dof));
 
-            // In its current state, the local interpolator matrix may be rank-deficient, which makes
-            // the solution process problematic. In this case we want to fulfill the interpolation constraint
-            // exactly, so we will resort to a very expensive dense SVD computation.
-            // Given the SVD given by I_H_local = U S V^T,
-            // and denoting r = rank(I_H_local), recall that the last n - r columns of V span the null space of
-            // I_H_local. Since we are only interested in the null space, we can replace I_H_local by
-            // an r x n matrix I_H_reduced such that ker(I_H_reduced) = ker(I_H_local).
-            // To do this, we note simply that we only require the SVD of I_H_reduced to share the same right
-            // singular vectors, and so we simply let the U and S matrices be the r x r identity matrix and a
-            // r x n rectangular identity matrix, respectively. Hence, writing
-            //
-            // I_H_reduced = I_r * [ I_r   0 ] V^T
-            //             = [ I_r   0 ] [ V_11^T   V_21^T ]
-            //             =             [ V_12^T   V_22^T ]
-            //             = [ V_11^T    V_21^T ],
-            //
-            // and hence we can define I_H_reduced as V_r^T, where V_r corresponds to the first r columns of
-            // the original V.
-            const Eigen::JacobiSVD<MatrixX<Scalar>> svd(MatrixX<Scalar>(I_H_local), Eigen::ComputeFullV);
-            const auto r = svd.rank();
-            const auto V_r = svd.matrixV().leftCols(r);
+            if (coarse_dof.empty())
+            {
+                return Eigen::SparseMatrix<Scalar>(0, 0);
+            }
+            else
+            {
+                const auto I_H_local = sparse_submatrix(global_interpolator,
+                                                        coarse_dof,
+                                                        fine_patch_interior);
 
-            const MatrixX<Scalar> I_H_reduced = V_r.transpose();
-            assert(I_H_reduced.rows() == r);
-            assert(I_H_reduced.cols() == static_cast<int>(fine_patch_interior.size()));
-            return Eigen::SparseMatrix<Scalar>(I_H_reduced.sparseView());
+                // In its current state, the local interpolator matrix may be rank-deficient, which makes
+                // the solution process problematic. In this case we want to fulfill the interpolation constraint
+                // exactly, so we will resort to a very expensive dense SVD computation.
+                // Given the SVD given by I_H_local = U S V^T,
+                // and denoting r = rank(I_H_local), recall that the last n - r columns of V span the null space of
+                // I_H_local. Since we are only interested in the null space, we can replace I_H_local by
+                // an r x n matrix I_H_reduced such that ker(I_H_reduced) = ker(I_H_local).
+                // To do this, we note simply that we only require the SVD of I_H_reduced to share the same right
+                // singular vectors, and so we simply let the U and S matrices be the r x r identity matrix and a
+                // r x n rectangular identity matrix, respectively. Hence, writing
+                //
+                // I_H_reduced = I_r * [ I_r   0 ] V^T
+                //             = [ I_r   0 ] [ V_11^T   V_21^T ]
+                //             =             [ V_12^T   V_22^T ]
+                //             = [ V_11^T    V_21^T ],
+                //
+                // and hence we can define I_H_reduced as V_r^T, where V_r corresponds to the first r columns of
+                // the original V.
+                const Eigen::JacobiSVD<MatrixX<Scalar>> svd(MatrixX<Scalar>(I_H_local), Eigen::ComputeFullV);
+                const auto r = svd.rank();
+                const auto V_r = svd.matrixV().leftCols(r);
+
+                const MatrixX<Scalar> I_H_reduced = V_r.transpose();
+                assert(I_H_reduced.rows() == r);
+                assert(I_H_reduced.cols() == static_cast<int>(fine_patch_interior.size()));
+                return Eigen::SparseMatrix<Scalar>(I_H_reduced.sparseView());
+            }
         }
 
         template <typename Scalar>
@@ -250,6 +264,8 @@ namespace crest
                 const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch, fine_patch_interior);
 
                 const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
+
+                assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
 
                 const auto global_index = coarse.elements()[coarse_element].vertex_indices[local_index];
                 for (size_t k = 0; k < fine_patch_interior.size(); ++k)

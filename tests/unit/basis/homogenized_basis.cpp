@@ -7,6 +7,8 @@
 #include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/basis/homogenized_basis.hpp>
 
+#include <crest/util/algorithms.hpp>
+
 #include <util/eigen_matchers.hpp>
 #include <util/test_generators.hpp>
 
@@ -50,17 +52,21 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     ASSERT_THAT(basis.rows(), Eq(two_scale_meshes.coarse.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(two_scale_meshes.fine.num_vertices()));
 
+    const auto coarse_interior = two_scale_meshes.coarse.compute_interior_vertices();
+    const auto fine_dof = crest::algo::integer_range<int>(0, two_scale_meshes.fine.num_vertices());
+
     const auto I_H = crest::quasi_interpolator(two_scale_meshes.coarse, two_scale_meshes.fine);
+    // We need to test with the coarse interior, because the matrix returned by quasi_interpolator
+    // does not impose that I_H x = 0 on the boundary.
+    const auto I_H_interior = sparse_submatrix(I_H, coarse_interior, fine_dof);
 
     // Recall that each row of 'basis' corresponds to weights in the fine space, so by transposing it and
     // left-multiplying by I_H, we effectively compute I_H x_i for each basis function i.
     // Since x_i is in the kernel of I_H, we expect the result to be zero.
-    const Eigen::SparseMatrix<double> Z = I_H * basis.transpose();
+    const Eigen::SparseMatrix<double> Z = I_H_interior * basis.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
-    const auto max_abs = std::max(Z_dense.maxCoeff(), std::abs(Z_dense.minCoeff()));
-
-    EXPECT_THAT(max_abs, Lt(1e-15));
+    EXPECT_TRUE(Z_dense.isZero(1e-15));
 }
 
 TEST(construct_saddle_point_problem_test, blockwise_correct)
@@ -130,16 +136,22 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
     ASSERT_THAT(basis.rows(), Eq(coarse_mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(fine_mesh.num_vertices()));
 
+    const auto coarse_interior = coarse_mesh.compute_interior_vertices();
+    const auto fine_dof = crest::algo::integer_range<int>(0, fine_mesh.num_vertices());
+
     const auto I_H = crest::quasi_interpolator(coarse_mesh, fine_mesh);
+
+    // We need to test with the coarse interior, because the matrix returned by quasi_interpolator
+    // does not impose that I_H x = 0 on the boundary.
+    const auto I_H_interior = sparse_submatrix(I_H, coarse_interior, fine_dof);
 
     // Recall that each row of 'basis' corresponds to weights in the fine space, so by transposing it and
     // left-multiplying by I_H, we effectively compute I_H x_i for each basis function i.
     // Since x_i is in the kernel of I_H, we expect the result to be zero.
-    const Eigen::SparseMatrix<double> Z = I_H * basis.transpose();
+    const Eigen::SparseMatrix<double> Z = I_H_interior * basis.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
-    const auto max_abs = std::max(std::abs(Z_dense.maxCoeff()), std::abs(Z_dense.minCoeff()));
-    RC_ASSERT(max_abs < 1e-14);
+    RC_ASSERT(Z_dense.isZero(1e-14));
 }
 
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ())
