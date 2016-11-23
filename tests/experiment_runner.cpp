@@ -58,9 +58,9 @@ void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
         return 2 * PI * cos(2 * PI * t) * sin(2 * PI * x) * cos(2 * PI * y);
     };
 
-    const auto u0 = [] (auto x, auto y)
+    const auto u0 = [&u] (auto x, auto y)
     {
-        return sin(2.0 * PI * x) * sin(2.0 * PI * y);
+        return u(0.0, x, y);
     };
 
     const auto v0 = [] (auto, auto)
@@ -103,28 +103,33 @@ void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
     const auto result = crest::wave::solve(basis, ic, load, bc, integrator, initializer, param, error_transformer);
 
     std::vector<double> l2_error_at_each_step;
+    std::vector<double> h1_semi_error_at_each_step;
     std::vector<double> h1_error_at_each_step;
 
-    for (uint64_t i = 0; i < param.num_samples; ++i)
+    for (const auto sample_error : result.result)
     {
-        const auto e_i = result.result[i];
-        l2_error_at_each_step.push_back(e_i.l2);
-        h1_error_at_each_step.push_back(e_i.h1);
+        l2_error_at_each_step.push_back(sample_error.l2);
+        h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
+        h1_error_at_each_step.push_back(sample_error.h1);
     }
 
     const auto total_l2_error = crest::composite_simpsons(l2_error_at_each_step.begin(),
                                                           l2_error_at_each_step.end(),
                                                           dt);
+    const auto total_h1_semi_error = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
+                                                               h1_semi_error_at_each_step.end(),
+                                                               dt);
     const auto total_h1_error = crest::composite_simpsons(h1_error_at_each_step.begin(),
                                                           h1_error_at_each_step.end(),
                                                           dt);
 
     cout << endl
-         << "# vertices: " << mesh.num_vertices() << endl
-         << "# elements: " << mesh.num_elements() << endl
-         << "dt:         " << dt << endl
-         << "L2 error:   " << total_l2_error << endl
-         << "H1 error:   " << total_h1_error << endl;
+         << "# vertices:    " << mesh.num_vertices() << endl
+         << "# elements:    " << mesh.num_elements() << endl
+         << "dt:            " << dt << endl
+         << "L2 error:      " << total_l2_error << endl
+         << "H1-semi error: " << total_h1_semi_error << endl
+         << "H1 error:      " << total_h1_error << endl;
 }
 
 struct ExperimentParameters
