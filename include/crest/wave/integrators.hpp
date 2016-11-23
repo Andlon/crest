@@ -24,7 +24,8 @@ namespace crest
         public:
             virtual ~Initializer() {}
 
-            virtual VectorX<Scalar> initialize(const InitialConditions<Scalar> & initial_conditions) const = 0;
+            virtual VectorX<Scalar> initialize(const InitialConditions<Scalar> & initial_conditions,
+                                               Scalar dt) const = 0;
         };
 
         template <typename Scalar>
@@ -33,16 +34,15 @@ namespace crest
         public:
             virtual ~Integrator() {}
 
-            virtual void setup(Eigen::SparseMatrix<Scalar> stiffness, Eigen::SparseMatrix<Scalar> mass) = 0;
+            virtual void setup(Scalar dt, Eigen::SparseMatrix<Scalar> stiffness, Eigen::SparseMatrix<Scalar> mass) = 0;
 
             virtual VectorX<Scalar> next(int step_index,
+                                         Scalar dt,
                                          const VectorX<Scalar> & current_solution,
                                          const VectorX<Scalar> & previous_solution,
                                          const VectorX<Scalar> & load_next,
                                          const VectorX<Scalar> & load_current,
                                          const VectorX<Scalar> & load_previous) = 0;
-
-            virtual Scalar timestep() const = 0;
         };
 
         /**
@@ -52,45 +52,24 @@ namespace crest
         class SeriesExpansionInitializer : public Initializer<Scalar>
         {
         public:
-            explicit SeriesExpansionInitializer(Scalar timestep) : _dt(timestep) {}
+            explicit SeriesExpansionInitializer() {}
 
-            virtual VectorX<Scalar> initialize(const InitialConditions<Scalar> & initial_conditions) const
+            virtual VectorX<Scalar> initialize(const InitialConditions<Scalar> & initial_conditions,
+                                               Scalar dt) const override
             {
                 const auto & ic = initial_conditions;
-                return ic.u0_h + _dt * ic.v0_h + 0.5 * _dt * _dt * ic.u0_tt_h;
+                return ic.u0_h + dt * ic.v0_h + 0.5 * dt * dt * ic.u0_tt_h;
             }
-
-        private:
-            Scalar _dt;
         };
 
         template <typename Scalar>
-        class ConstantTimestepIntegrator : public Integrator<Scalar>
+        class CrankNicolson : public Integrator<Scalar>
         {
         public:
-            explicit ConstantTimestepIntegrator(Scalar time_step) : _dt(time_step) {
-                if (time_step <= Scalar(0)) {
-                    throw std::invalid_argument("Time step must be a positive number.");
-                }
-            }
+            explicit CrankNicolson() {}
 
-            virtual Scalar timestep() const { return _dt; }
-
-        private:
-            Scalar _dt;
-        };
-
-        template <typename Scalar>
-        class CrankNicolson : public ConstantTimestepIntegrator<Scalar>
-        {
-        public:
-            explicit CrankNicolson(Scalar time_step)
-                    : ConstantTimestepIntegrator<Scalar>(time_step)
-            {}
-
-            virtual void setup(Eigen::SparseMatrix<Scalar> stiffness, Eigen::SparseMatrix<Scalar> mass)
+            virtual void setup(Scalar dt, Eigen::SparseMatrix<Scalar> stiffness, Eigen::SparseMatrix<Scalar> mass)
             {
-                const auto dt = this->timestep();
                 _mass = std::move(mass);
                 _stiffness = std::move(stiffness);
 
@@ -99,6 +78,7 @@ namespace crest
             }
 
             virtual VectorX<Scalar> next(int step_index,
+                                         Scalar dt,
                                          const VectorX<Scalar> & x_curr,
                                          const VectorX<Scalar> & x_prev,
                                          const VectorX<Scalar> & b_prev,
@@ -109,7 +89,6 @@ namespace crest
 
                 const auto & M = _mass;
                 const auto & A = _stiffness;
-                const auto dt = this->timestep();
                 const auto dt2 = dt * dt;
 
                 const auto rhs = M * (Scalar(2.0) * x_curr - x_prev)

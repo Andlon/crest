@@ -76,7 +76,9 @@ namespace crest
             std::vector<VectorX<Scalar>> solution;
         };
 
+        template <typename Scalar>
         struct Parameters {
+            Scalar dt;
             uint64_t num_steps;
         };
 
@@ -87,18 +89,18 @@ namespace crest
                                const ConstraintHandler<Scalar> & constraint_handler,
                                Integrator<Scalar> & integrator,
                                const Initializer<Scalar> & initializer,
-                               const Parameters & parameters)
+                               const Parameters<Scalar> & parameters)
         {
             const auto assembly = basis.assemble();
             const auto constrained_stiffness = constraint_handler.constrain_system_matrix(assembly.stiffness);
             const auto constrained_mass = constraint_handler.constrain_system_matrix(assembly.mass);
             const auto constrained_ic = detail::constrain_initial_conditions(constraint_handler, initial_conditions);
 
-            const auto dt = integrator.timestep();
-            integrator.setup(std::move(constrained_stiffness), std::move(constrained_mass));
+            const auto dt = parameters.dt;
+            integrator.setup(dt, std::move(constrained_stiffness), std::move(constrained_mass));
 
             VectorX<Scalar> x_prev = constrained_ic.u0_h;
-            VectorX<Scalar> x_current = initializer.initialize(constrained_ic);
+            VectorX<Scalar> x_current = initializer.initialize(constrained_ic, dt);
             VectorX<Scalar> x_next = VectorX<Scalar>(constraint_handler.num_free_nodes());
 
             VectorX<Scalar> load_prev = constraint_handler.constrain_load(load_provider.compute(Scalar(0)));
@@ -115,7 +117,7 @@ namespace crest
             for (uint64_t i = 2; i < parameters.num_steps; ++i)
             {
                 load_next = constraint_handler.constrain_load(load_provider.compute(Scalar(i) * dt));
-                x_next = integrator.next(i, x_current, x_prev, load_next, load_current, load_prev);
+                x_next = integrator.next(i, dt, x_current, x_prev, load_next, load_current, load_prev);
 
                 // TODO: Replace with transform
                 sol.solution.push_back(constraint_handler.expand_solution(x_next));

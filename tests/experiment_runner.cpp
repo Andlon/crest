@@ -79,13 +79,14 @@ void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
     ic.u0_tt_h = basis.interpolate(u0_tt);
 
     const auto bc = crest::wave::HomogeneousDirichlet<double>(basis);
-    const auto initializer = crest::wave::SeriesExpansionInitializer<double>(dt);
-    crest::wave::CrankNicolson<double> integrator(dt);
+    const crest::wave::SeriesExpansionInitializer<double> initializer;
+    crest::wave::CrankNicolson<double> integrator;
 
     const auto load = crest::wave::make_basis_load_function<4>(f, basis);
 
-    crest::wave::Parameters param;
+    crest::wave::Parameters<double> param;
     param.num_steps = num_samples;
+    param.dt = dt;
 
     const auto result = crest::wave::solve(basis, ic, load, bc, integrator, initializer, param);
 
