@@ -321,7 +321,7 @@ namespace crest
             const auto diff_squared = [&] (auto x, auto y)
             {
                 // Note that J_inv_t cancels with J_t for f_grad_ref
-                const auto diff = f_grad_ref(x, y) - f_h_grad_ref_transformed;
+                const Eigen::Matrix<Scalar, 2, 1> diff = f_grad_ref(x, y) - f_h_grad_ref_transformed;
                 return diff.dot(diff);
             };
 
