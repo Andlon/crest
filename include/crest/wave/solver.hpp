@@ -69,11 +69,10 @@ namespace crest
             return BasisLoadProvider<QuadStrength, Scalar, TemporalFunction2d, BasisImpl>(f, basis);
         };
 
-        template <typename Scalar>
-        struct Solution
+        template <typename Scalar, typename TransformedResult>
+        struct SolveResult
         {
-            // The contents here are temporary. It is intended to be replaced
-            std::vector<VectorX<Scalar>> solution;
+            std::vector<TransformedResult> result;
         };
 
         template <typename Scalar>
@@ -82,14 +81,27 @@ namespace crest
             uint64_t num_samples;
         };
 
-        template <typename Scalar, typename BasisImpl>
-        Solution<Scalar> solve(const Basis<Scalar, BasisImpl> & basis,
-                               const InitialConditions<Scalar> & initial_conditions,
-                               const LoadProvider<Scalar> & load_provider,
-                               const ConstraintHandler<Scalar> & constraint_handler,
-                               Integrator<Scalar> & integrator,
-                               const Initializer<Scalar> & initializer,
-                               const Parameters<Scalar> & parameters)
+        template < typename Scalar, typename TransformedResult>
+        class ResultTransformer
+        {
+        public:
+            /*
+             * Transforms the solution at time t and given sample index `x` into
+             * a TransformedResult.
+             */
+            virtual TransformedResult transform(uint64_t index, Scalar t, const VectorX<Scalar> & x) const = 0;
+        };
+
+        template <typename Scalar, typename BasisImpl, typename TransformedResult>
+        SolveResult<Scalar, TransformedResult>
+        solve(const Basis<Scalar, BasisImpl> & basis,
+              const InitialConditions<Scalar> & initial_conditions,
+              const LoadProvider<Scalar> & load_provider,
+              const ConstraintHandler<Scalar> & constraint_handler,
+              Integrator<Scalar> & integrator,
+              const Initializer<Scalar> & initializer,
+              const Parameters<Scalar> & parameters,
+              const ResultTransformer<Scalar, TransformedResult> & transformer)
         {
             const auto assembly = basis.assemble();
             const auto constrained_stiffness = constraint_handler.constrain_system_matrix(assembly.stiffness);
@@ -107,11 +119,10 @@ namespace crest
             VectorX<Scalar> load_current = constraint_handler.constrain_load(load_provider.compute(dt));
             VectorX<Scalar> load_next = constraint_handler.constrain_load(load_provider.compute(Scalar(2) * dt));
 
-            Solution<Scalar> sol;
+            SolveResult<Scalar, TransformedResult> sol;
 
-            // TODO: Replace with transform
-            sol.solution.push_back(constraint_handler.expand_solution(x_prev));
-            sol.solution.push_back(constraint_handler.expand_solution(x_current));
+            sol.result.push_back(transformer.transform(0u, 0.0, constraint_handler.expand_solution(x_prev)));
+            sol.result.push_back(transformer.transform(1u, dt,  constraint_handler.expand_solution(x_current)));
 
             // TODO: Handle num_samples == 0 or 1?
             for (uint64_t i = 2; i < parameters.num_samples; ++i)
@@ -119,8 +130,9 @@ namespace crest
                 load_next = constraint_handler.constrain_load(load_provider.compute(Scalar(i) * dt));
                 x_next = integrator.next(i, dt, x_current, x_prev, load_next, load_current, load_prev);
 
-                // TODO: Replace with transform
-                sol.solution.push_back(constraint_handler.expand_solution(x_next));
+                sol.result.push_back(transformer.transform(i,
+                                                             Scalar(i) * dt,
+                                                             constraint_handler.expand_solution(x_next)));
 
                 // TODO: Replace this with Eigen's swap for efficiency? For now keep std::swap until we
                 // have confirmed working code
