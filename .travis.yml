@@ -8,6 +8,8 @@ addons:
       - g++-5
       - cmake-data
       - cmake
+      - binutils
+      - binutils-gold
     sources:
       - george-edison55-precise-backports
       - ubuntu-toolchain-r-test
