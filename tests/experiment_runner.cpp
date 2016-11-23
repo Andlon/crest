@@ -85,14 +85,14 @@ void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
     const auto load = crest::wave::make_basis_load_function<4>(f, basis);
 
     crest::wave::Parameters<double> param;
-    param.num_steps = num_samples;
+    param.num_samples = num_samples;
     param.dt = dt;
 
     const auto result = crest::wave::solve(basis, ic, load, bc, integrator, initializer, param);
 
     std::vector<double> l2_error_at_each_step;
 
-    for (uint64_t i = 0; i < param.num_steps; ++i)
+    for (uint64_t i = 0; i < param.num_samples; ++i)
     {
         const auto t = i * dt;
         const auto u_i = [&u, t] (auto x, auto y) { return u(t, x, y); };

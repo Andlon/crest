@@ -79,7 +79,7 @@ namespace crest
         template <typename Scalar>
         struct Parameters {
             Scalar dt;
-            uint64_t num_steps;
+            uint64_t num_samples;
         };
 
         template <typename Scalar, typename BasisImpl>
@@ -113,8 +113,8 @@ namespace crest
             sol.solution.push_back(constraint_handler.expand_solution(x_prev));
             sol.solution.push_back(constraint_handler.expand_solution(x_current));
 
-            // TODO: Handle num_steps == 0 or 1?
-            for (uint64_t i = 2; i < parameters.num_steps; ++i)
+            // TODO: Handle num_samples == 0 or 1?
+            for (uint64_t i = 2; i < parameters.num_samples; ++i)
             {
                 load_next = constraint_handler.constrain_load(load_provider.compute(Scalar(i) * dt));
                 x_next = integrator.next(i, dt, x_current, x_prev, load_next, load_current, load_prev);
