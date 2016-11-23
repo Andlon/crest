@@ -1,5 +1,5 @@
 os: linux
-env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5
+env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5 LD=ld.gold
 # We set language to generic so that Travis doesn't fall back to old compilers
 language: generic
 addons:
