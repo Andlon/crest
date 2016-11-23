@@ -1,5 +1,5 @@
 os: linux
-env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5 CORES=2
+env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5
 # We set language to generic so that Travis doesn't fall back to old compilers
 language: generic
 addons:
@@ -29,18 +29,14 @@ script:
 
   # Debug build
   - cd $TRAVIS_BUILD_DIR/target/debug
-  - echo -e "\n\n--- DEBUG BUILD ---"
   - cmake $TRAVIS_BUILD_DIR -DCMAKE_BUILD_TYPE=Debug
-  - make -j $CORES check
-  - echo -e "\n\n--- COMPLETED DEBUG BUILD ---"
+  - make check
 
   # Release build. There has been at least one case where the release
   # build failed, but the debug one did not.
   - cd $TRAVIS_BUILD_DIR/target/release
-  - echo "\n\n--- RELEASE BUILD ---"
   - cmake $TRAVIS_BUILD_DIR -DCMAKE_BUILD_TYPE=Release
-  - make -j $CORES check
-  - echo -e "\n\n--- COMPLETED RELEASE BUILD ---"
+  - make check
 
 
 
