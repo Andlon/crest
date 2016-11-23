@@ -38,60 +38,6 @@ crest::IndexedMesh<double, int> minimal_unit_square()
     return crest::IndexedMesh<double, int>(std::move(vertices), std::move(elements));
 };
 
-template <typename Scalar>
-struct ErrorSample
-{
-    Scalar l2;
-    Scalar h1;
-    Scalar h1_semi;
-};
-
-template <int QuadStrength, typename Scalar, typename BasisImpl,
-        typename Function2dt, typename Function2dt_x, typename Function2dt_y>
-class ErrorTransformer : public crest::wave::ResultTransformer<Scalar, ErrorSample<Scalar>>
-{
-public:
-    explicit ErrorTransformer(const crest::Basis<Scalar, BasisImpl> & basis,
-                              const Function2dt & u,
-                              const Function2dt_x & u_x,
-                              const Function2dt_y & u_y)
-            : _basis(basis), _u(u), _u_x(u_x), _u_y(u_y) {}
-
-    virtual ErrorSample<Scalar> transform(uint64_t i, Scalar t, const VectorX<Scalar> & weights) const override
-    {
-        (void) i;
-
-        // u, u_x and u_y are time-dependent functions, but here we fix the time t.
-        const auto u_i = [this, t] (auto x, auto y) { return _u(t, x, y); };
-        const auto u_x_i = [this, t] (auto x, auto y) { return _u_x(t, x, y); };
-        const auto u_y_i = [this, t] (auto x, auto y) { return _u_y(t, x, y); };
-
-        ErrorSample<Scalar> errors;
-        errors.l2 = _basis.template error_l2<QuadStrength>(u_i, weights);
-        errors.h1_semi = _basis.template error_h1_semi<QuadStrength>(u_x_i, u_y_i, weights);
-        errors.h1 = std::sqrt(errors.l2 * errors.l2 + errors.h1_semi * errors.h1_semi);
-        return errors;
-    }
-
-private:
-    const crest::Basis<Scalar, BasisImpl> & _basis;
-    const Function2dt & _u;
-    const Function2dt_x & _u_x;
-    const Function2dt_y & _u_y;
-};
-
-template <int QuadStrength, typename Scalar, typename BasisImpl,
-        typename Function2dt, typename Function2dt_x, typename Function2dt_y>
-ErrorTransformer<QuadStrength, Scalar, BasisImpl, Function2dt, Function2dt_x, Function2dt_y>
-make_error_transformer(const crest::Basis<Scalar, BasisImpl> & basis,
-                       const Function2dt & u,
-                       const Function2dt_x & u_x,
-                       const Function2dt_y & u_y)
-{
-    return ErrorTransformer<QuadStrength, Scalar, BasisImpl, Function2dt, Function2dt_x, Function2dt_y>
-            (basis, u, u_x, u_y);
-};
-
 void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
 {
     using std::sin;
@@ -152,7 +98,7 @@ void homogeneous_standard_lagrange(double T, double h, uint64_t num_samples)
     param.num_samples = num_samples;
     param.dt = dt;
 
-    const auto error_transformer = make_error_transformer<4>(basis, u, u_x, u_y);
+    const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
 
     const auto result = crest::wave::solve(basis, ic, load, bc, integrator, initializer, param, error_transformer);
 

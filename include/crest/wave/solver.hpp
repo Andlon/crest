@@ -4,6 +4,7 @@
 #include <crest/basis/basis.hpp>
 #include <crest/wave/constraints.hpp>
 #include <crest/wave/integrators.hpp>
+#include <crest/wave/transformers.hpp>
 
 #include <utility>
 
@@ -79,17 +80,6 @@ namespace crest
         struct Parameters {
             Scalar dt;
             uint64_t num_samples;
-        };
-
-        template < typename Scalar, typename TransformedResult>
-        class ResultTransformer
-        {
-        public:
-            /*
-             * Transforms the solution at time t and given sample index `x` into
-             * a TransformedResult.
-             */
-            virtual TransformedResult transform(uint64_t index, Scalar t, const VectorX<Scalar> & x) const = 0;
         };
 
         template <typename Scalar, typename BasisImpl, typename TransformedResult>
