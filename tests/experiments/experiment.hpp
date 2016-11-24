@@ -1,25 +1,45 @@
 #pragma once
 
 #include <crest/wave/solver.hpp>
+#include <crest/geometry/indexed_mesh.hpp>
+#include <crest/quadrature/simpsons.hpp>
 
 #include <string>
 #include <cmath>
 
 struct ExperimentParameters
 {
-    // Run the experiment for the time interval [0, T]
-    double T;
+    // Run the experiment for the time interval [0, end_time]
+    double end_time;
     // With mesh resolution h
-    double h;
-    // And number of time steps N
-    uint64_t N;
+    double mesh_resolution;
+    // And number of time samples (including t = 0)
+    uint64_t sample_count;
 
     // TODO: Enable this switch. For now we always compute Bochner errors
     // bool compute_bochner;
 
     double dt() const
     {
-        return T / (N - 1);
+        return end_time / (sample_count - 1);
+    }
+
+    ExperimentParameters & with_end_time(double t)
+    {
+        this->end_time = t;
+        return *this;
+    }
+
+    ExperimentParameters & with_mesh_resolution(double res)
+    {
+        this->mesh_resolution = res;
+        return *this;
+    }
+
+    ExperimentParameters & with_sample_count(uint64_t count)
+    {
+        this->sample_count = count;
+        return *this;
     }
 };
 
@@ -31,16 +51,37 @@ struct MeshDetails
 
 struct ErrorSummary
 {
-    double l2_error;
-    double h1_error;
-    double h1_error_semi;
+    double l2;
+    double h1;
+    double h1_semi;
 
     /*
      * If bochner is true, then the errors represent error in time as well as space.
      * That is, the errors are computed in terms of Bochner norms.
      * Otherwise, only the error at the final sample was measured.
+     *
+     * TODO: Enable this feature
      */
-    bool bochner;
+//    bool bochner;
+
+    ErrorSummary & with_l2(double error)
+    {
+        this->l2 = error;
+        return *this;
+    }
+
+    ErrorSummary & with_h1(double error)
+    {
+        this->h1 = error;
+        return *this;
+    }
+
+    ErrorSummary & with_h1_semi(double error)
+    {
+        this->h1_semi = error;
+        return *this;
+    }
+
 };
 
 struct ExperimentOutput
@@ -54,6 +95,24 @@ struct ExperimentResult
     ExperimentParameters    parameters;
     MeshDetails             mesh_details;
     ErrorSummary            error_summary;
+
+    ExperimentResult & with_parameters(const ExperimentParameters & param)
+    {
+        this->parameters = param;
+        return *this;
+    }
+
+    ExperimentResult & with_mesh_details(const MeshDetails & details)
+    {
+        this->mesh_details = details;
+        return *this;
+    }
+
+    ExperimentResult & with_error_summary(const ErrorSummary & summary)
+    {
+        this->error_summary = summary;
+        return *this;
+    }
 };
 
 void verify_parameter_validity(const ExperimentParameters & parameters);
@@ -101,7 +160,7 @@ protected:
         const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
 
         crest::wave::Parameters<double> param;
-        param.num_samples = parameters.N;
+        param.num_samples = parameters.sample_count;
         param.dt = dt;
         const auto result = crest::wave::solve(basis, initial_conditions, load_provider, constraint_handler,
                                                integrator, initializer, param, error_transformer);
@@ -132,9 +191,9 @@ protected:
         mesh_details.num_vertices = mesh.num_vertices();
 
         ErrorSummary errors;
-        errors.h1_error = total_h1_error;
-        errors.l2_error = total_l2_error;
-        errors.h1_error_semi = total_h1_semi_error;
+        errors.h1 = total_h1_error;
+        errors.l2 = total_l2_error;
+        errors.h1_semi = total_h1_semi_error;
 
         ExperimentOutput output;
         output.error_summary = errors;
@@ -146,16 +205,16 @@ protected:
 
 inline void verify_parameter_validity(const ExperimentParameters & parameters)
 {
-    if (parameters.T <= 0.0 || !std::isfinite(parameters.T))
+    if (parameters.end_time <= 0.0 || !std::isfinite(parameters.end_time))
     {
         throw std::invalid_argument("Final time T must be finite and greater than zero.");
     }
 
-    if (parameters.N < 1) {
+    if (parameters.sample_count < 1) {
         throw std::invalid_argument("Number of samples N must be 1 or greater.");
     }
 
-    if (parameters.h <= 0.0 || !std::isfinite(parameters.h))
+    if (parameters.mesh_resolution <= 0.0 || !std::isfinite(parameters.mesh_resolution))
     {
         throw std::invalid_argument("Spatial resolution h must be finite and greater than zero.");
     }

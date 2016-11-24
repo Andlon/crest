@@ -78,7 +78,7 @@ protected:
             return 4.0 * PI_SQUARED * cos(2.0 * PI * t) * sin(2.0 * PI * x) * sin(2.0 * PI * y);
         };
 
-        const auto h = parameters.h;
+        const auto h = parameters.mesh_resolution;
 
         const auto mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
         const auto basis = crest::LagrangeBasis2d<double>(mesh);

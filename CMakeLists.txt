@@ -16,6 +16,10 @@ set(UNIT_TEST_SOURCES
         tests/unit/quadrature/simpsons.cpp
         tests/unit/geometry/mesh_algorithms.cpp)
 
+set(INTEGRATION_TEST_SOURCES
+        tests/integration/integration.cpp
+        tests/integration/convergence.cpp)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(GCC_CXX_FLAGS "-Wall -Wextra -Werror -march=native")
 
@@ -46,6 +50,13 @@ target_link_libraries(unit_tests gmock gmock_main gtest gtest_main rapidcheck)
 target_include_directories(unit_tests PRIVATE tests/ SYSTEM external/rapidcheck/extras/gtest/include)
 set_property(TARGET unit_tests PROPERTY CXX_STANDARD 14)
 add_custom_target(unit COMMAND unit_tests)
+
+# Integration tests
+add_executable(integration_tests ${INTEGRATION_TEST_SOURCES})
+target_link_libraries(integration_tests gmock gmock_main gtest gtest_main)
+target_include_directories(integration_tests PRIVATE tests/)
+set_property(TARGET integration_tests PROPERTY CXX_STANDARD 14)
+add_custom_target(integration COMMAND integration_tests)
 
 # Run all tests using the 'check' target
 add_custom_target(check COMMAND unit_tests)
