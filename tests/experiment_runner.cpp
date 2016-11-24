@@ -28,14 +28,14 @@ auto experiment_result_as_json(const ExperimentResult & result)
                               {"num_elements", result.mesh_details.num_elements }
                       }},
             { "error_summary", {
-                              { "h1", result.error_summary.h1_error },
-                              { "h1_semi", result.error_summary.h1_error_semi },
-                              { "l2", result.error_summary.l2_error }
+                              { "h1", result.error_summary.h1 },
+                              { "h1_semi", result.error_summary.h1_semi },
+                              { "l2", result.error_summary.l2 }
                       }},
             { "parameters", {
-                              { "h", result.parameters.h },
-                              { "num_samples", result.parameters.N },
-                              { "T", result.parameters.T }
+                              { "h", result.parameters.mesh_resolution },
+                              { "num_samples", result.parameters.sample_count },
+                              { "T", result.parameters.end_time }
                       }}
     };
 
@@ -51,9 +51,9 @@ ExperimentParameters parse_cmd_arguments(std::string T_str, std::string h_str, s
     if (T > 0.0 && h > 0.0 && num_samples >= 2)
     {
         ExperimentParameters param;
-        param.T = T;
-        param.h = h;
-        param.N = num_samples;
+        param.end_time = T;
+        param.mesh_resolution = h;
+        param.sample_count = num_samples;
 
         return param;
     }
