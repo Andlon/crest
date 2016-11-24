@@ -8,6 +8,8 @@
 
 #include <experiments/experiments.hpp>
 
+#include <json.hpp>
+
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -17,20 +19,27 @@ using std::endl;
 using std::cerr;
 using std::setw;
 
-
-void homogeneous_standard_lagrange(const ExperimentParameters & param)
+auto experiment_result_as_json(const ExperimentResult & result)
 {
-    HomogeneousLoadUnitSquare experiment;
-    crest::wave::CrankNicolson<double> integrator;
-    const auto result = experiment.run(param, integrator);
+    using nlohmann::json;
+    json output = {
+            { "mesh", {
+                              {"num_vertices", result.mesh_details.num_vertices },
+                              {"num_elements", result.mesh_details.num_elements }
+                      }},
+            { "error_summary", {
+                              { "h1", result.error_summary.h1_error },
+                              { "h1_semi", result.error_summary.h1_error_semi },
+                              { "l2", result.error_summary.l2_error }
+                      }},
+            { "parameters", {
+                              { "h", result.parameters.h },
+                              { "num_samples", result.parameters.N },
+                              { "T", result.parameters.T }
+                      }}
+    };
 
-    cout << endl
-         << "# vertices:    " << result.mesh_details.num_vertices << endl
-         << "# elements:    " << result.mesh_details.num_elements << endl
-         << "dt:            " << result.parameters.dt() << endl
-         << "L2 error:      " << result.error_summary.l2_error << endl
-         << "H1-semi error: " << result.error_summary.h1_error_semi << endl
-         << "H1 error:      " << result.error_summary.h1_error << endl;
+    return output;
 }
 
 ExperimentParameters parse_cmd_arguments(std::string T_str, std::string h_str, std::string N_str)
@@ -71,13 +80,14 @@ int main(int argc, char ** argv)
         return 1;
     }
 
-    cout << "Parameters: " << endl
-         << "T: " << setw(8) << params.T << " (end time)" << endl
-         << "h: " << setw(8) << params.h << " (spatial discretization)" << endl
-         << "N: " << setw(8) << params.N << " (number of temporal samples)" << endl;
-
     try {
-        homogeneous_standard_lagrange(params);
+        HomogeneousLoadUnitSquare experiment;
+        crest::wave::CrankNicolson<double> integrator;
+        const auto result = experiment.run(params, integrator);
+
+        const auto json = experiment_result_as_json(result);
+
+        cout << json.dump(4) << endl;
     }
     catch (const std::exception & e)
     {
