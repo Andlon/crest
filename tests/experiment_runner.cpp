@@ -44,8 +44,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
 
 ExperimentParameters parse_cmd_arguments(std::string T_str, std::string h_str, std::string N_str)
 {
-    const auto T = std::stof(T_str);
-    const auto h = std::stof(h_str);
+    const auto T = std::stod(T_str);
+    const auto h = std::stod(h_str);
     const uint64_t num_samples = std::stoull(N_str);
 
     if (T > 0.0 && h > 0.0 && num_samples >= 2)
