@@ -34,6 +34,9 @@ add_subdirectory(external/googletest)
 # Make GTEST a SYSTEM include directory, to prevent warning propagation etc.
 include_directories(SYSTEM GTEST_ROOT/include)
 
+# This should normally only be used by Travis. Lets us use Eigen by simply copying files into external/include/Eigen
+include_directories(SYSTEM external/include)
+
 # Add rapidcheck for writing property-based tests
 add_subdirectory("external/rapidcheck")
 

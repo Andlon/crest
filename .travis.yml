@@ -1,5 +1,6 @@
 os: linux
-env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5 LD=ld.gold
+dist: precise
+sudo: false
 # We set language to generic so that Travis doesn't fall back to old compilers
 language: generic
 addons:
@@ -8,36 +9,30 @@ addons:
       - g++-5
       - cmake-data
       - cmake
-      - binutils
-      - binutils-gold
     sources:
       - george-edison55-precise-backports
       - ubuntu-toolchain-r-test
 
-before_install:
-  # Fetch external submodule dependencies
-  - git submodule init
-  - git submodule update
+env:
+  # Ideally we'd also run with CMAKE_BUILD_TYPE=Debug,
+  # but there are some issues with the -fsanitize flags used for the debug builds
+  - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS=""
+  - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS="-DCMAKE_BUILD_TYPE=Release"
 
+before_install:
   # Install Eigen by copying header files to a system include directory
   - wget -q http://bitbucket.org/eigen/eigen/get/3.2.10.tar.bz2
   - tar -xf 3.2.10.tar.bz2
   - cd eigen-eigen*
-  - sudo cp -R Eigen /usr/local/include/Eigen
+  # Abuse the fact that BUILD_DIR/include/ is an include directory
+  - mkdir -p $TRAVIS_BUILD_DIR/external/include
+  - mv Eigen $TRAVIS_BUILD_DIR/external/include/Eigen
 
 script:
   - cd $TRAVIS_BUILD_DIR
-  - mkdir -p target/debug target/release
-
-  # Debug build
-  - cd $TRAVIS_BUILD_DIR/target/debug
-  - cmake $TRAVIS_BUILD_DIR -DCMAKE_BUILD_TYPE=Debug
-  - make check
-
-  # Release build. There has been at least one case where the release
-  # build failed, but the debug one did not.
-  - cd $TRAVIS_BUILD_DIR/target/release
-  - cmake $TRAVIS_BUILD_DIR -DCMAKE_BUILD_TYPE=Release
+  - mkdir -p target
+  - cd $TRAVIS_BUILD_DIR/target
+  - cmake $TRAVIS_BUILD_DIR $CMAKE_DEFS
   - make check
 
 
