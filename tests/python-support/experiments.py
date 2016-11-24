@@ -9,11 +9,10 @@ def _experiment_runner_path():
 
 
 def run_experiment(params):
-    args = [_experiment_runner_path(), params['T'], params['h'], params['N']]
+    args = [_experiment_runner_path() ]
     result = subprocess.run(args=args,
-                            input=None,
+                            input=json.dumps(params, indent=4),
                             stdout=subprocess.PIPE,
-                            check=True,
                             universal_newlines=True)
     return json.loads(result.stdout)
 

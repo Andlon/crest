@@ -33,67 +33,44 @@ auto experiment_result_as_json(const ExperimentResult & result)
                               { "l2", result.error_summary.l2 }
                       }},
             { "parameters", {
-                              { "h", result.parameters.mesh_resolution },
-                              { "num_samples", result.parameters.sample_count },
-                              { "T", result.parameters.end_time }
+                              { "mesh_resolution", result.parameters.mesh_resolution },
+                              { "sample_count", result.parameters.sample_count },
+                              { "end_time", result.parameters.end_time }
                       }}
     };
 
     return output;
 }
 
-ExperimentParameters parse_cmd_arguments(std::string T_str, std::string h_str, std::string N_str)
+int main(int, char **)
 {
-    const auto T = std::stod(T_str);
-    const auto h = std::stod(h_str);
-    const uint64_t num_samples = std::stoull(N_str);
-
-    if (T > 0.0 && h > 0.0 && num_samples >= 2)
+    try
     {
-        ExperimentParameters param;
-        param.end_time = T;
-        param.mesh_resolution = h;
-        param.sample_count = num_samples;
+        nlohmann::json j;
+        std::cin >> j;
 
-        return param;
-    }
+        const auto input_params = j["parameters"];
 
-    throw std::invalid_argument("Invalid parameters.");
-}
+        ExperimentParameters params;
+        params.end_time = input_params["end_time"];
+        params.mesh_resolution = input_params["mesh_resolution"];
+        params.sample_count = input_params["sample_count"];
 
-int main(int argc, char ** argv)
-{
-    if (argc != 4)
-    {
-        cout << "Invalid number of arguments." << endl;
-        return 1;
-    }
-
-    ExperimentParameters params;
-
-    try {
-        params = parse_cmd_arguments(std::string(argv[1]), std::string(argv[2]), std::string(argv[3]));
-    }
-    catch (const std::invalid_argument & e)
-    {
-        cerr << e.what() << endl;
-        return 1;
-    }
-
-    try {
         HomogeneousLoadUnitSquare experiment;
         crest::wave::CrankNicolson<double> integrator;
         const auto result = experiment.run(params, integrator);
 
         const auto json = experiment_result_as_json(result);
-
         cout << json.dump(4) << endl;
-    }
-    catch (const std::exception & e)
+
+        return 0;
+    } catch (const std::exception & e)
     {
-        cerr << e.what() << endl;
+        nlohmann::json j = {
+                { "error", e.what() }
+        };
+        cout << j.dump(4) << endl;
+
         return 1;
     }
-
-    return 0;
 }
