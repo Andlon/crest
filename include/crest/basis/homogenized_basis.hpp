@@ -378,5 +378,102 @@ namespace crest
         }
     }
 
+    template <typename Scalar>
+    class HomogenizedBasis : public Basis<Scalar, HomogenizedBasis<Scalar>>
+    {
+    public:
+        explicit HomogenizedBasis(const IndexedMesh<Scalar, int> & coarse,
+                                  const IndexedMesh<Scalar, int> & fine,
+                                  unsigned int oversampling)
+                : _coarse(coarse), _fine(fine) {
+            // TODO: Probably want to change the design of Basis to accommodate the fact that HomogenizedBasis
+            // needs to do a lot of computation at construction in order to compute load vectors etc.
+            const auto lagrange_weights = detail::standard_coarse_basis_in_fine_space(coarse, fine);
+            const auto corrector_weights = detail::homogenized_basis_correctors(coarse, fine, oversampling);
+            _basis_weights = lagrange_weights - corrector_weights;
+        }
 
+        virtual std::vector<int> boundary_nodes() const override { return _coarse.boundary_vertices(); }
+
+        virtual std::vector<int> interior_nodes() const override { return _coarse.compute_interior_vertices(); }
+
+        virtual Assembly<Scalar> assemble() const override;
+
+        virtual int num_dof() const override { return _coarse.num_vertices(); }
+
+        template <typename Function2d>
+        VectorX<Scalar> interpolate(const Function2d & f) const;
+
+        template <int QuadStrength, typename Function2d>
+        VectorX<Scalar> load(const Function2d & f) const;
+
+        template <int QuadStrength, typename Function2d>
+        Scalar error_l2(const Function2d & f, const VectorX<Scalar> & weights) const;
+
+        template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+        Scalar error_h1_semi(const Function2d_x & f_x,
+                             const Function2d_y & f_y,
+                             const VectorX<Scalar> & weights) const;
+
+    private:
+        const Eigen::SparseMatrix<Scalar> _basis_weights;
+        const IndexedMesh<Scalar, int> & _coarse;
+        const IndexedMesh<Scalar, int> & _fine;
+    };
+
+    template <typename Scalar>
+    Assembly<Scalar> HomogenizedBasis<Scalar>::assemble() const
+    {
+        LagrangeBasis2d<Scalar> fine_basis(_fine);
+        const auto fine_assembly = fine_basis.assemble();
+
+        const auto & M = fine_assembly.mass;
+        const auto & A = fine_assembly.stiffness;
+        const auto & W = _basis_weights;
+
+        Assembly<Scalar> assembly;
+        assembly.mass = W * M * W.transpose();
+        assembly.mass = W * A * W.transpose();
+        return assembly;
+    }
+
+    template <typename Scalar>
+    template <typename Function2d>
+    VectorX<Scalar> HomogenizedBasis<Scalar>::interpolate(const Function2d & f) const
+    {
+        LagrangeBasis2d<Scalar> coarse_basis(_coarse);
+        return coarse_basis.interpolate(f);
+    }
+
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d>
+    VectorX<Scalar> HomogenizedBasis<Scalar>::load(const Function2d & f) const
+    {
+        const LagrangeBasis2d<Scalar> fine_basis(_fine);
+        const auto fine_load = fine_basis.load<QuadStrength>(f);
+        const auto & W = _basis_weights;
+        return W * fine_load;
+    };
+
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d>
+    Scalar HomogenizedBasis<Scalar>::error_l2(const Function2d & f, const VectorX<Scalar> & weights) const
+    {
+        const LagrangeBasis2d<Scalar> fine_basis(_fine);
+        const auto & W = _basis_weights;
+        const auto fine_weights = W.transpose() * weights;
+        return fine_basis.error_l2<QuadStrength>(f, fine_weights);
+    };
+
+    template <typename Scalar>
+    template <int QuadStrength, typename Function2d_x, typename Function2d_y>
+    Scalar HomogenizedBasis<Scalar>::error_h1_semi(const Function2d_x & f_x,
+                                                   const Function2d_y & f_y,
+                                                   const VectorX<Scalar> & weights) const
+    {
+        const LagrangeBasis2d<Scalar> fine_basis(_fine);
+        const auto & W = _basis_weights;
+        const auto fine_weights = W.transpose() * weights;
+        return fine_basis.error_h1_semi<QuadStrength>(f_x, f_y, weights);
+    };
 }
