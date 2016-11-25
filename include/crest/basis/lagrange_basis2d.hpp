@@ -140,7 +140,7 @@ namespace crest
     template <typename Scalar>
     Assembly<Scalar> LagrangeBasis2d<Scalar>::assemble() const
     {
-        const auto triplets = detail::assemble_linear_lagrangian_stiffness_triplets(_mesh);
+        const auto triplets = detail::assemble_linear_lagrangian_system_triplets(_mesh);
 
         Assembly<Scalar> assembly;
 

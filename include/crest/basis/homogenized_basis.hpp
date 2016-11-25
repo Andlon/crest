@@ -286,7 +286,7 @@ namespace crest
             const auto I_H = quasi_interpolator(coarse, fine);
 
             // TODO: Rewrite LagrangeBasis2d so that we can reuse its functionality instead of this workaround
-            const auto assembly = assemble_linear_lagrangian_stiffness_triplets(fine);
+            const auto assembly = assemble_linear_lagrangian_system_triplets(fine);
             Eigen::SparseMatrix<Scalar> A(fine.num_vertices(), fine.num_vertices());
             A.setFromTriplets(assembly.stiffness_triplets.cbegin(), assembly.stiffness_triplets.cend());
 
