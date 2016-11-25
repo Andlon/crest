@@ -12,6 +12,19 @@ namespace crest
 {
     namespace detail
     {
+        /**
+         * Returns the coefficients of the three linear Lagrange basis functions
+         * associated with the triangle.
+         *
+         * Given basis function l_i for i = 0, 1, 2, then
+         * l_i = a_i x + b_i y + c_i
+         * where
+         *      [ a_0   a_1   a_2 ]
+         * B =  [ b_0   b_1   b_2 ]
+         *      [ c_0   c_1   c_2 ]
+         * @param triangle
+         * @return
+         */
         template <typename Scalar>
         Eigen::Matrix<Scalar, 3, 3> basis_coefficients_for_triangle(const Triangle<Scalar> & triangle)
         {

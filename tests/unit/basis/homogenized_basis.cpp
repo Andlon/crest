@@ -45,9 +45,9 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     const auto two_scale_meshes = crest::threshold(initial_mesh, 0.5,
                                                    { crest::ReentrantCorner<double, int>(0, 2.35)});
 
-    const auto basis = crest::detail::homogenized_basis(two_scale_meshes.coarse,
-                                                        two_scale_meshes.fine,
-                                                        4);
+    const auto basis = crest::detail::homogenized_basis_correctors(two_scale_meshes.coarse,
+                                                                   two_scale_meshes.fine,
+                                                                   4);
 
     ASSERT_THAT(basis.rows(), Eq(two_scale_meshes.coarse.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(two_scale_meshes.fine.num_vertices()));
@@ -131,7 +131,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
                                                   return mesh.num_elements() != coarse_mesh.num_elements();
                                               });
 
-    const auto basis = crest::detail::homogenized_basis(coarse_mesh, fine_mesh, oversampling);
+    const auto basis = crest::detail::homogenized_basis_correctors(coarse_mesh, fine_mesh, oversampling);
 
     ASSERT_THAT(basis.rows(), Eq(coarse_mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(fine_mesh.num_vertices()));
@@ -158,7 +158,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
 {
     const auto oversampling = static_cast<unsigned int>(*rc::gen::inRange(0, 6));
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
-    const auto basis = crest::detail::homogenized_basis(mesh, mesh, oversampling);
+    const auto basis = crest::detail::homogenized_basis_correctors(mesh, mesh, oversampling);
 
     ASSERT_THAT(basis.rows(), Eq(mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(mesh.num_vertices()));
@@ -173,4 +173,49 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
     }
 
     RC_ASSERT(max_abs < 1e-14);
+}
+
+TEST(standard_coarse_basis_in_fine_space, basic_mesh)
+{
+    const std::vector<Vertex> coarse_vertices{
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0)
+    };
+
+    const std::vector<Element> coarse_elements {
+            Element({3, 0, 1}),
+            Element({1, 2, 3})
+    };
+
+    const std::vector<Vertex> fine_vertices {
+            Vertex(0.0, 0.0),
+            Vertex(1.0, 0.0),
+            Vertex(1.0, 1.0),
+            Vertex(0.0, 1.0),
+            Vertex(0.5, 0.5)
+    };
+
+    const std::vector<Element> fine_elements {
+            Element({0, 4, 3}),
+            Element({2, 4, 1}),
+            Element({1, 4, 0}),
+            Element({2, 4, 3})
+    };
+
+    const auto coarse_mesh = IndexedMesh<double, int>(coarse_vertices, coarse_elements);
+    const auto fine_mesh = IndexedMesh<double, int>(fine_vertices, fine_elements);
+
+    const Eigen::Matrix<double, 4, 5> coarse_basis_in_fine =
+            crest::detail::standard_coarse_basis_in_fine_space(coarse_mesh, fine_mesh);
+
+    Eigen::Matrix<double, 4, 5> expected;
+    expected <<
+             1.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0, 0.5,
+            0.0, 0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0, 0.5;
+
+    ASSERT_THAT(coarse_basis_in_fine, MatrixEq(expected));
 }

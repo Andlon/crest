@@ -9,6 +9,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
 
+#include <set>
 #include <cassert>
 
 namespace crest
@@ -277,7 +278,7 @@ namespace crest
         }
 
         template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> homogenized_basis(
+        Eigen::SparseMatrix<Scalar> homogenized_basis_correctors(
                 const IndexedMesh<Scalar, int> & coarse,
                 const IndexedMesh<Scalar, int> & fine,
                 unsigned int oversampling)
@@ -309,6 +310,70 @@ namespace crest
 
             Eigen::SparseMatrix<Scalar> basis(coarse.num_vertices(), fine.num_vertices());
             basis.setFromTriplets(basis_triplets.cbegin(), basis_triplets.cend());
+            return basis;
+        }
+
+        /**
+         * Computes the weights of the standard coarse Lagrangian basis functions in the fine space
+         * @param coarse
+         * @param fine
+         * @return
+         */
+        template <typename Scalar>
+        Eigen::SparseMatrix<Scalar> standard_coarse_basis_in_fine_space(const IndexedMesh<Scalar, int> & coarse,
+                                                                        const IndexedMesh<Scalar, int> & fine)
+        {
+            // A complicating matter here is that a vertex in the fine mesh can reside in multiple
+            // coarse elements, and so it's easy to count them twice.
+
+            // The approach demonstrated here is horribly inefficient and inelegant.
+            // It is meant as a simple stop-gap solution.
+            // TODO: Improve this
+
+            std::set<std::pair<int, int>> visited;
+            std::vector<Eigen::Triplet<Scalar>> triplets;
+
+            for (int k = 0; k < coarse.num_elements(); ++k)
+            {
+                const auto coarse_element = coarse.elements()[k];
+                const auto triangle = coarse.triangle_for(k);
+                const auto coeff = detail::basis_coefficients_for_triangle(triangle);
+
+                for (int t = 0; t < fine.num_elements(); ++t)
+                {
+                    // TODO: Implement efficient lookup to prevent quadratic complexity in iteration of fine nodes
+                    if (fine.ancestor_for(t) == k)
+                    {
+                        const auto fine_element = fine.elements()[t];
+                        for (int i = 0; i < 3; ++i)
+                        {
+                            const auto v_index = fine_element.vertex_indices[i];
+                            const auto v = fine.vertices()[v_index];
+
+                            for (int j = 0; j < 3; ++j)
+                            {
+                                const auto coarse_index = coarse_element.vertex_indices[j];
+                                const auto key = std::make_pair(coarse_index, v_index);
+                                if (visited.count(key) == 0)
+                                {
+                                    const auto a = coeff(0, j);
+                                    const auto b = coeff(1, j);
+                                    const auto c = coeff(2, j);
+
+                                    const auto v_value = a * v.x + b * v.y + c;
+
+                                    triplets.push_back(Eigen::Triplet<Scalar>(coarse_index, v_index, v_value));
+                                    visited.insert(key);
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+
+            Eigen::SparseMatrix<Scalar> basis(coarse.num_vertices(), fine.num_vertices());
+            basis.setFromTriplets(triplets.begin(), triplets.end());
             return basis;
         }
     }
