@@ -56,8 +56,8 @@ namespace crest
         };
 
         template <typename Scalar>
-        assembly_triplets<Scalar> assemble_linear_lagrangian_stiffness_triplets(
-                const crest::IndexedMesh<Scalar, int> &mesh);
+        assembly_triplets<Scalar> assemble_linear_lagrangian_system_triplets(
+                const crest::IndexedMesh<Scalar, int> & mesh);
     }
 
     /*
@@ -65,8 +65,8 @@ namespace crest
      */
 
     template <typename Scalar>
-    detail::assembly_triplets<Scalar> detail::assemble_linear_lagrangian_stiffness_triplets(
-            const crest::IndexedMesh<Scalar, int> &mesh)
+    detail::assembly_triplets<Scalar> detail::assemble_linear_lagrangian_system_triplets(
+            const crest::IndexedMesh<Scalar, int> & mesh)
     {
         const static Eigen::Matrix<Scalar, 3, 3> M_LOCAL_REF = (1.0 / 24.0) * (Eigen::Matrix3d()
                 <<
