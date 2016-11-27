@@ -177,10 +177,11 @@ namespace crest
         }
 
         template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> localized_quasi_interpolator(const Eigen::SparseMatrix<Scalar> & global_interpolator,
-                                                                 const IndexedMesh<Scalar, int> & coarse_mesh,
-                                                                 const std::vector<int> & coarse_patch,
-                                                                 const std::vector<int> & fine_patch_interior)
+        Eigen::SparseMatrix<Scalar>
+        localized_quasi_interpolator(const Eigen::SparseMatrix<Scalar> & global_interpolator,
+                                     const IndexedMesh<Scalar, int> & coarse_mesh,
+                                     const std::vector<int> & coarse_patch,
+                                     const std::vector<int> & fine_patch_interior)
         {
             assert(std::is_sorted(coarse_patch.cbegin(), coarse_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
@@ -254,15 +255,15 @@ namespace crest
             if (fine_patch_interior.empty())
             {
                 return triplets;
-            }
-            else
+            } else
             {
                 const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
                                                                     coarse,
                                                                     coarse_patch,
                                                                     fine_patch_interior);
                 const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);
-                const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch, fine_patch_interior);
+                const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch,
+                                               fine_patch_interior);
 
                 const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
 
