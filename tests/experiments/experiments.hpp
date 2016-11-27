@@ -88,10 +88,10 @@ protected:
         ic.v0_h = basis.interpolate(v0);
         ic.u0_tt_h = basis.interpolate(u0_tt);
 
-        const auto bc = crest::wave::HomogeneousDirichlet<double>(basis);
-        const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
         const auto load = crest::wave::make_basis_load_function<4>(f, basis);
+        const auto bc = crest::wave::HomogeneousDirichletBC<double>::assemble(basis, load);
+        const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
-        return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, load, bc, integrator, initializer);
+        return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, bc, integrator, initializer);
     }
 };

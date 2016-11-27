@@ -151,8 +151,7 @@ protected:
                                        const crest::IndexedMesh<double, int> mesh,
                                        const crest::Basis<double, BasisImpl> & basis,
                                        const crest::wave::InitialConditions<double> & initial_conditions,
-                                       const crest::wave::LoadProvider<double> & load_provider,
-                                       const crest::wave::ConstraintHandler<double> & constraint_handler,
+                                       const crest::wave::ConstrainedSystem<double> & system,
                                        crest::wave::Integrator<double> & integrator,
                                        const crest::wave::Initializer<double> & initializer) const
     {
@@ -162,7 +161,7 @@ protected:
         crest::wave::Parameters<double> param;
         param.num_samples = parameters.sample_count;
         param.dt = dt;
-        const auto result = crest::wave::solve(basis, initial_conditions, load_provider, constraint_handler,
+        const auto result = crest::wave::solve(system, initial_conditions,
                                                integrator, initializer, param, error_transformer);
 
         std::vector<double> l2_error_at_each_step;

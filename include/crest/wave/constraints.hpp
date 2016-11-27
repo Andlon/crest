@@ -3,6 +3,8 @@
 #include <crest/util/eigen_extensions.hpp>
 #include <crest/util/algorithms.hpp>
 
+#include <crest/wave/load.hpp>
+
 #include <cassert>
 
 namespace crest
@@ -10,47 +12,49 @@ namespace crest
     namespace wave
     {
         template <typename Scalar>
-        class ConstraintHandler
-        {
+        class ConstrainedSystem {
         public:
-            virtual ~ConstraintHandler() {}
+            virtual ~ConstrainedSystem() {}
 
-            virtual int num_free_nodes() const = 0;
+            int num_free_nodes() const { return _stiffness.rows(); }
+            int num_total_nodes() const { return _num_total; }
 
-            virtual VectorX<Scalar> expand_solution(const VectorX<Scalar> & reduced) const = 0;
+            const Eigen::SparseMatrix<Scalar> & stiffness() const { return _stiffness; }
+            const Eigen::SparseMatrix<Scalar> & mass() const { return _mass; }
 
+            virtual VectorX<Scalar> expand_solution(const VectorX<Scalar> & constrained) const = 0;
             virtual VectorX<Scalar> constrain_solution(const VectorX<Scalar> & full) const = 0;
             virtual VectorX<Scalar> constrain_velocity(const VectorX<Scalar> & full) const = 0;
             virtual VectorX<Scalar> constrain_acceleration(const VectorX<Scalar> & full) const = 0;
 
-            virtual VectorX<Scalar> constrain_load(const VectorX<Scalar> & full) const = 0;
+            virtual VectorX<Scalar> load(Scalar t) const = 0;
 
-            virtual Eigen::SparseMatrix<Scalar> constrain_system_matrix(const Eigen::SparseMatrix<Scalar> & matrix) const = 0;
+        protected:
+            explicit ConstrainedSystem(Eigen::SparseMatrix<Scalar> stiffness,
+                                       Eigen::SparseMatrix<Scalar> mass,
+                                       int num_total_nodes)
+                    : _stiffness(stiffness), _mass(mass), _num_total(num_total_nodes)
+            { }
+
+
+        private:
+            Eigen::SparseMatrix<Scalar> _stiffness;
+            Eigen::SparseMatrix<Scalar> _mass;
+            int _num_total;
         };
 
         template <typename Scalar>
-        class HomogeneousDirichlet : public ConstraintHandler<Scalar>
+        class HomogeneousDirichletBC : public ConstrainedSystem<Scalar>
         {
         public:
-            template <typename BasisImpl>
-            explicit HomogeneousDirichlet(const Basis<Scalar, BasisImpl> & basis)
-                    : _interior(basis.interior_nodes()), _num_nodes(basis.num_dof())
-            {
-
-            }
-
-            virtual int num_free_nodes() const override
-            {
-                return static_cast<int>(_interior.size());
-            }
-
             virtual VectorX<Scalar> expand_solution(const VectorX<Scalar> & reduced) const override
             {
-                const auto num_free = num_free_nodes();
-                VectorX<Scalar> full(_num_nodes);
+                const auto num_free = ConstrainedSystem<Scalar>::num_free_nodes();
+                const auto num_total = ConstrainedSystem<Scalar>::num_total_nodes();
+                VectorX<Scalar> full(num_total);
                 full.setZero();
 
-                assert(_num_nodes >= num_free);
+                assert(num_total >= num_free);
                 for (int i = 0; i < num_free; ++i)
                 {
                     const auto full_index = _interior[i];
@@ -73,20 +77,43 @@ namespace crest
                 return submatrix(full, _interior, { 0 });
             }
 
-            virtual VectorX<Scalar> constrain_load(const VectorX<Scalar> & full) const override
+            virtual VectorX<Scalar> load(Scalar t) const override
             {
-                return submatrix(full, _interior, { 0 });
+                const auto unconstrained_load = _load_provider.compute(t);
+                return submatrix(unconstrained_load, _interior, { 0 });
             }
 
-            virtual Eigen::SparseMatrix<Scalar>
-            constrain_system_matrix(const Eigen::SparseMatrix<Scalar> & matrix) const override
+            template <typename BasisImpl>
+            static HomogeneousDirichletBC<Scalar> assemble(const Basis<Scalar, BasisImpl> & basis,
+                                                           const LoadProvider<Scalar> & load_provider)
             {
-                return sparse_submatrix(matrix, _interior, _interior);
+                const auto interior = basis.interior_nodes();
+                const auto assembly = basis.assemble();
+                const auto num_total = basis.num_dof();
+
+                const auto stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
+                const auto mass = sparse_submatrix(assembly.mass, interior, interior);
+
+                return HomogeneousDirichletBC(std::move(stiffness),
+                                              std::move(mass),
+                                              load_provider,
+                                              std::move(interior),
+                                              num_total);
             }
 
         private:
+            explicit HomogeneousDirichletBC(Eigen::SparseMatrix<Scalar> stiffness,
+                                            Eigen::SparseMatrix<Scalar> mass,
+                                            const LoadProvider<Scalar> & load_provider,
+                                            std::vector<int> interior,
+                                            int num_total_nodes)
+                    : ConstrainedSystem<Scalar>(stiffness, mass, num_total_nodes),
+                      _load_provider(load_provider),
+                      _interior(interior)
+            { }
+
+            const LoadProvider<Scalar> & _load_provider;
             std::vector<int> _interior;
-            int _num_nodes;
         };
     }
 
