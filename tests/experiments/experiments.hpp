@@ -95,3 +95,81 @@ protected:
         return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, bc, integrator, initializer);
     }
 };
+
+class InhomogeneousLoadUnitSquare : public Experiment
+{
+protected:
+    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
+                                   crest::wave::Integrator<double> & integrator) const override
+    {
+        constexpr double PI = 3.1415926535897932385;
+        constexpr double PI_SQUARED = PI * PI;
+
+        using std::sin;
+        using std::cos;
+
+        const auto u = [] (auto t, auto x, auto y)
+        {
+            return cos(2 * PI * t * x) + cos(2 * PI * t) * sin(2 * PI * x) * sin(2 * PI * y);
+        };
+
+        const auto u_x = [] (auto t, auto x, auto y)
+        {
+            return -2 * PI * t * sin(2 * PI * t * x) + 2 * PI * cos(2 * PI * t) * cos(2 * PI * x) * sin(2 * PI * y);
+        };
+
+        const auto u_y = [] (auto t, auto x, auto y)
+        {
+            return 2 * PI * cos(2 * PI * t) * sin(2 * PI * x) * cos(2 * PI * y);
+        };
+
+        const auto u0 = [] (auto x, auto y)
+        {
+            return 1 + sin(2 * PI * x) * sin(2 * PI * y);
+        };
+
+        const auto v0 = [] (auto  , auto  )
+        {
+            return 0.0;
+        };
+
+        const auto f = [] (auto t, auto x, auto y)
+        {
+            return 4 * PI_SQUARED * cos(2 * PI * t) * sin(2 * PI * x) * sin(2 * PI * y) +
+                   4 * PI_SQUARED * cos(2 * PI * t * x) * (t * t - x * x);
+        };
+
+        const auto u0_tt = [] (auto x, auto y)
+        {
+            return - 4 * PI_SQUARED * (x * x) - 8 * PI_SQUARED * sin(2 * PI * x) * sin(2 * PI * y);
+        };
+
+
+        const auto g = [] (auto t, auto x, auto  )
+        {
+            return cos(2 * PI * t * x);
+        };
+
+        const auto g_tt = [] (auto t, auto x, auto  )
+        {
+            return - 4 * PI_SQUARED * (x * x) * cos(2 * PI * t * x);
+        };
+
+        const auto h = parameters.mesh_resolution;
+
+        const auto mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
+        const auto basis = crest::LagrangeBasis2d<double>(mesh);
+
+        crest::wave::InitialConditions<double> ic;
+        ic.u0_h = basis.interpolate(u0);
+        ic.v0_h = basis.interpolate(v0);
+        ic.u0_tt_h = basis.interpolate(u0_tt);
+
+        const auto load = crest::wave::make_basis_load_function<4>(f, basis);
+        // TODO: Fix this factory function mess. Generalize it.
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(basis, load, g, g_tt);
+        const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
+
+        return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, bc, integrator, initializer);
+    }
+};

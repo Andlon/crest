@@ -92,9 +92,16 @@ struct ExperimentOutput
 
 struct ExperimentResult
 {
+    std::string             name;
     ExperimentParameters    parameters;
     MeshDetails             mesh_details;
     ErrorSummary            error_summary;
+
+    ExperimentResult & with_name(std::string name)
+    {
+        this->name = name;
+        return *this;
+    }
 
     ExperimentResult & with_parameters(const ExperimentParameters & param)
     {

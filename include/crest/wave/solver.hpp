@@ -68,18 +68,19 @@ namespace crest
 
             SolveResult<Scalar, TransformedResult> sol;
 
-            sol.result.push_back(transformer.transform(0u, 0.0, system.expand_solution(x_prev)));
-            sol.result.push_back(transformer.transform(1u, dt,  system.expand_solution(x_current)));
+            sol.result.push_back(transformer.transform(0u, Scalar(0), system.expand_solution(Scalar(0), x_prev)));
+            sol.result.push_back(transformer.transform(1u, dt,  system.expand_solution(Scalar(dt), x_current)));
 
             // TODO: Handle num_samples == 0 or 1?
             for (uint64_t i = 2; i < parameters.num_samples; ++i)
             {
+                const auto t = Scalar(i) * dt;
                 load_next = system.load(Scalar(i) * dt);
                 x_next = integrator.next(i, dt, x_current, x_prev, load_next, load_current, load_prev);
 
                 sol.result.push_back(transformer.transform(i,
-                                                           Scalar(i) * dt,
-                                                           system.expand_solution(x_next)));
+                                                           t,
+                                                           system.expand_solution(t, x_next)));
 
                 // TODO: Replace this with Eigen's swap for efficiency? For now keep std::swap until we
                 // have confirmed working code

@@ -23,6 +23,7 @@ auto experiment_result_as_json(const ExperimentResult & result)
 {
     using nlohmann::json;
     json output = {
+            { "experiment", result.name },
             { "mesh", {
                               {"num_vertices", result.mesh_details.num_vertices },
                               {"num_elements", result.mesh_details.num_elements }
@@ -42,6 +43,19 @@ auto experiment_result_as_json(const ExperimentResult & result)
     return output;
 }
 
+ExperimentResult run_experiment(const std::string & name,
+                                const ExperimentParameters & params,
+                                crest::wave::Integrator<double> & integrator)
+{
+    if (name == "homogeneous_dirichlet_unit_square") {
+        return HomogeneousLoadUnitSquare().run(params, integrator);
+    } else if (name == "inhomogeneous_dirichlet_unit_square") {
+        return InhomogeneousLoadUnitSquare().run(params, integrator);
+    } else {
+        throw std::invalid_argument("Unknown experiment requested.");
+    }
+}
+
 int main(int, char **)
 {
     try
@@ -49,6 +63,7 @@ int main(int, char **)
         nlohmann::json j;
         std::cin >> j;
 
+        const std::string experiment_name = j["experiment"];
         const auto input_params = j["parameters"];
 
         ExperimentParameters params;
@@ -56,13 +71,11 @@ int main(int, char **)
         params.mesh_resolution = input_params["mesh_resolution"];
         params.sample_count = input_params["sample_count"];
 
-        HomogeneousLoadUnitSquare experiment;
         crest::wave::CrankNicolson<double> integrator;
-        const auto result = experiment.run(params, integrator);
-
+        const auto result = run_experiment(experiment_name, params, integrator)
+                .with_name(experiment_name);
         const auto json = experiment_result_as_json(result);
         cout << json.dump(4) << endl;
-
         return 0;
     } catch (const std::exception & e)
     {
