@@ -25,19 +25,19 @@ auto experiment_result_as_json(const ExperimentResult & result)
     json output = {
             { "experiment", result.name },
             { "mesh", {
-                              {"num_vertices", result.mesh_details.num_vertices },
-                              {"num_elements", result.mesh_details.num_elements }
-                      }},
+                                    {"num_vertices", result.mesh_details.num_vertices },
+                                    {"num_elements", result.mesh_details.num_elements }
+                            }},
             { "error_summary", {
-                              { "h1", result.error_summary.h1 },
-                              { "h1_semi", result.error_summary.h1_semi },
-                              { "l2", result.error_summary.l2 }
-                      }},
+                                    { "h1", result.error_summary.h1 },
+                                    { "h1_semi", result.error_summary.h1_semi },
+                                    { "l2", result.error_summary.l2 }
+                            }},
             { "parameters", {
-                              { "mesh_resolution", result.parameters.mesh_resolution },
-                              { "sample_count", result.parameters.sample_count },
-                              { "end_time", result.parameters.end_time }
-                      }}
+                                    { "mesh_resolution", result.parameters.mesh_resolution },
+                                    { "sample_count", result.parameters.sample_count },
+                                    { "end_time", result.parameters.end_time }
+                            }}
     };
 
     return output;
@@ -51,8 +51,12 @@ ExperimentResult run_experiment(const std::string & name,
         return HomogeneousLoadUnitSquare().run(params, integrator);
     } else if (name == "inhomogeneous_dirichlet_unit_square") {
         return InhomogeneousLoadUnitSquare().run(params, integrator);
-    } else if (name == "homogenized_l_shaped") {
+    } else if (name == "homogenized_l_shaped")
+    {
         return HomogenizedLShaped().run(params, integrator);
+    } else if (name == "standard_l_shaped")
+    {
+        return StandardLShaped().run(params, integrator);
     } else {
         throw std::invalid_argument("Unknown experiment requested.");
     }
