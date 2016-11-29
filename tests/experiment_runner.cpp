@@ -51,6 +51,8 @@ ExperimentResult run_experiment(const std::string & name,
         return HomogeneousLoadUnitSquare().run(params, integrator);
     } else if (name == "inhomogeneous_dirichlet_unit_square") {
         return InhomogeneousLoadUnitSquare().run(params, integrator);
+    } else if (name == "homogenized_l_shaped") {
+        return HomogenizedLShaped().run(params, integrator);
     } else {
         throw std::invalid_argument("Unknown experiment requested.");
     }

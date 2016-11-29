@@ -417,7 +417,7 @@ namespace crest
                              const VectorX<Scalar> & weights) const;
 
     private:
-        const Eigen::SparseMatrix<Scalar> _basis_weights;
+        Eigen::SparseMatrix<Scalar> _basis_weights;
         const IndexedMesh<Scalar, int> & _coarse;
         const IndexedMesh<Scalar, int> & _fine;
     };
@@ -434,7 +434,7 @@ namespace crest
 
         Assembly<Scalar> assembly;
         assembly.mass = W * M * W.transpose();
-        assembly.mass = W * A * W.transpose();
+        assembly.stiffness = W * A * W.transpose();
         return assembly;
     }
 
@@ -462,7 +462,7 @@ namespace crest
     {
         const LagrangeBasis2d<Scalar> fine_basis(_fine);
         const auto & W = _basis_weights;
-        const auto fine_weights = W.transpose() * weights;
+        const VectorX<Scalar> fine_weights = W.transpose() * weights;
         return fine_basis.error_l2<QuadStrength>(f, fine_weights);
     };
 
@@ -474,7 +474,7 @@ namespace crest
     {
         const LagrangeBasis2d<Scalar> fine_basis(_fine);
         const auto & W = _basis_weights;
-        const auto fine_weights = W.transpose() * weights;
-        return fine_basis.error_h1_semi<QuadStrength>(f_x, f_y, weights);
+        const VectorX<Scalar> fine_weights = W.transpose() * weights;
+        return fine_basis.error_h1_semi<QuadStrength>(f_x, f_y, fine_weights);
     };
 }
