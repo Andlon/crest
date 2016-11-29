@@ -219,3 +219,27 @@ TEST(standard_coarse_basis_in_fine_space, basic_mesh)
 
     ASSERT_THAT(coarse_basis_in_fine, MatrixEq(expected));
 }
+
+RC_GTEST_PROP(standard_coarse_basis_in_fine_space, quasi_interpolation_recovers_coarse_basis, ())
+{
+    // Let v_H be the weights of a function in the coarse space. Then v_H is also a function in the fine space,
+    // and since I_H is a quasi interpolation, we have that I_H v_h = v_H, where v_h are the fine weights of
+    // the coarse function.
+    // We can verify that this property holds for all basis functions as represented in the fine space.
+
+    const auto coarse = *crest::gen::arbitrary_unit_square_mesh().as("Coarse mesh");
+    const auto fine = *crest::gen::arbitrary_refinement(coarse, 0, 5).as("Fine mesh");
+
+    const auto basis = crest::detail::standard_coarse_basis_in_fine_space(coarse, fine);
+    const auto I_H = crest::quasi_interpolator(coarse, fine);
+
+    const Eigen::SparseMatrix<double> interpolated = I_H * basis.transpose();
+    const Eigen::MatrixXd interpolated_dense = interpolated;
+
+    RC_LOG() << interpolated_dense << std::endl;
+
+    // We could have had a shaper tolerance here, but it appears Eigen does not do an elementwise comparison
+    // for isIdentity (which is very annoying, by the way), as it can spuriously fail even when all non-diagonal
+    // elements are smaller than 3e-16.
+    RC_ASSERT(interpolated_dense.isIdentity(1e-14));
+}
