@@ -59,7 +59,7 @@ set_property(TARGET integration_tests PROPERTY CXX_STANDARD 14)
 add_custom_target(integration COMMAND integration_tests)
 
 # Run all tests using the 'check' target
-add_custom_target(check COMMAND unit_tests)
+add_custom_target(check COMMAND unit_tests integration_tests)
 
 # Pycrest
 set(PYCREST_SOURCES pycrest/pycrest.cpp)
