@@ -425,9 +425,11 @@ namespace crest
     template <typename Function2d>
     VectorX<Scalar> HomogenizedBasis<Scalar>::interpolate(const Function2d & f) const
     {
-        const LagrangeBasis2d<Scalar> fine_basis(_fine);
-        const auto I_H = quasi_interpolator(_coarse, _fine);
-        return I_H * fine_basis.interpolate(f);
+        // A slightly more accuracte way of interpolating would perhaps be to interpolate the function
+        // in the fine space, and then quasi-interpolate it to weights in the coarse space.
+        // However, it seems this has some unfortunate effects on the implementation of inhomogeneous
+        // Dirichlet boundary conditions?
+        return LagrangeBasis2d<Scalar>(_coarse).interpolate(f);
     }
 
     template <typename Scalar>
