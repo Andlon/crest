@@ -182,24 +182,33 @@ protected:
             h1_error_at_each_step.push_back(sample_error.h1);
         }
 
-        const auto total_l2_error = crest::composite_simpsons(l2_error_at_each_step.begin(),
-                                                              l2_error_at_each_step.end(),
-                                                              dt);
-        const auto total_h1_semi_error = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
-                                                                   h1_semi_error_at_each_step.end(),
-                                                                   dt);
-        const auto total_h1_error = crest::composite_simpsons(h1_error_at_each_step.begin(),
-                                                              h1_error_at_each_step.end(),
-                                                              dt);
-
         MeshDetails mesh_details;
         mesh_details.num_elements = mesh.num_elements();
         mesh_details.num_vertices = mesh.num_vertices();
 
         ErrorSummary errors;
-        errors.h1 = total_h1_error;
-        errors.l2 = total_l2_error;
-        errors.h1_semi = total_h1_semi_error;
+
+        switch (param.num_samples) {
+            case 1:
+                errors.h1 = h1_error_at_each_step.back();
+                errors.l2 = l2_error_at_each_step.back();
+                errors.h1_semi = h1_semi_error_at_each_step.back();
+                break;
+
+            default:
+                // TODO: Support even number of samples. Simpsons will currently throw when it
+                // is given an even number of samples
+                errors.l2 = crest::composite_simpsons(l2_error_at_each_step.begin(),
+                                                      l2_error_at_each_step.end(),
+                                                      dt);
+                errors.h1_semi = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
+                                                           h1_semi_error_at_each_step.end(),
+                                                           dt);
+                errors.h1 = crest::composite_simpsons(h1_error_at_each_step.begin(),
+                                                      h1_error_at_each_step.end(),
+                                                      dt);
+                break;
+        }
 
         ExperimentOutput output;
         output.error_summary = errors;

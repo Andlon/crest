@@ -53,6 +53,10 @@ namespace crest
               const Parameters<Scalar> & parameters,
               const ResultTransformer<Scalar, TransformedResult> & transformer)
         {
+            if (parameters.num_samples == 0) {
+                throw std::invalid_argument("Number of samples must be greater or equal to 1.");
+            }
+
             const auto constrained_ic = detail::constrain_initial_conditions(system, initial_conditions);
 
             const auto dt = parameters.dt;
@@ -69,9 +73,11 @@ namespace crest
             SolveResult<Scalar, TransformedResult> sol;
 
             sol.result.push_back(transformer.transform(0u, Scalar(0), system.expand_solution(Scalar(0), x_prev)));
-            sol.result.push_back(transformer.transform(1u, dt,  system.expand_solution(Scalar(dt), x_current)));
 
-            // TODO: Handle num_samples == 0 or 1?
+            if (parameters.num_samples > 1) {
+                sol.result.push_back(transformer.transform(1u, dt,  system.expand_solution(Scalar(dt), x_current)));
+            }
+
             for (uint64_t i = 2; i < parameters.num_samples; ++i)
             {
                 const auto t = Scalar(i) * dt;
@@ -91,6 +97,10 @@ namespace crest
                 std::swap(x_current, x_next);
                 std::swap(load_prev, load_current);
                 std::swap(load_current, load_next);
+            }
+
+            if (sol.result.size() != parameters.num_samples) {
+                throw std::logic_error("Internal error: result size is not equal to number of samples.");
             }
 
             return sol;
