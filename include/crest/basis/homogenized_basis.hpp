@@ -45,11 +45,15 @@ namespace crest
                                   const std::vector<int> & fine_patch,
                                   const std::vector<int> & fine_patch_interior)
         {
+            // TODO: Simplify this function
             assert(std::is_sorted(fine_patch.cbegin(), fine_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
 
             const auto coarse_triangle = coarse.triangle_for(coarse_element);
             const Eigen::Matrix<Scalar, 3, 3> coarse_coeff = basis_coefficients_for_triangle(coarse_triangle);
+
+            const auto coarse_grad_x = coarse_coeff(0, local_index);
+            const auto coarse_grad_y = coarse_coeff(1, local_index);
 
             VectorX<Scalar> rhs(fine_patch_interior.size());
             rhs.setZero();
@@ -62,17 +66,15 @@ namespace crest
                     const auto fine_triangle = fine.triangle_for(k);
                     const Eigen::Matrix<Scalar, 3, 3> fine_coeff = basis_coefficients_for_triangle(fine_triangle);
 
+
                     for (size_t j = 0; j < 3; ++j)
                     {
-                        const auto product = [&] (auto x, auto y)
+                        const auto fine_grad_x = fine_coeff(0, j);
+                        const auto fine_grad_y = fine_coeff(1, j);
+
+                        const auto product = [&] (auto  , auto  )
                         {
-                            const auto coarse_basis_value =
-                                    coarse_coeff(0, local_index) * x
-                                    + coarse_coeff(1, local_index) * y
-                                    + coarse_coeff(2, local_index);
-                            const auto fine_basis_value =
-                                    fine_coeff(0, j) * x + fine_coeff(1, j) * y + fine_coeff(2, j);
-                            return coarse_basis_value * fine_basis_value;
+                            return coarse_grad_x * fine_grad_x + coarse_grad_y * fine_grad_y;
                         };
 
                         // At this point, we only know the index of the vertex in the global mesh,
@@ -248,6 +250,7 @@ namespace crest
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
 
+            const auto global_index = coarse.elements()[coarse_element].vertex_indices[local_index];
             const auto coarse_patch = patch_for_element(coarse, coarse_element, oversampling);
             const auto fine_patch = fine_patch_from_coarse(fine, coarse_patch);
             const auto fine_patch_interior = patch_interior(fine, fine_patch);
@@ -268,8 +271,6 @@ namespace crest
                 const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
 
                 assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
-
-                const auto global_index = coarse.elements()[coarse_element].vertex_indices[local_index];
                 for (size_t k = 0; k < fine_patch_interior.size(); ++k)
                 {
                     triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));

@@ -12,6 +12,9 @@
 #include <util/eigen_matchers.hpp>
 #include <util/test_generators.hpp>
 
+#include <Eigen/Sparse>
+#include <Eigen/Dense>
+
 using ::testing::ElementsAreArray;
 using ::testing::Pointwise;
 using ::testing::Eq;
@@ -173,6 +176,59 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
     }
 
     RC_ASSERT(max_abs < 1e-14);
+}
+
+RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space, ())
+{
+    // Let W be such that W_ij corrected basis function i is defined by
+    //
+    // lambda_i = sum_j W_ij phi_j
+    //
+    // where phi_j denotes the fine-scale basis functions. Then the a-orthogonality of the corrected space V_H and
+    // the fine-scale finite element space implies that
+    //
+    // A W^T = 0
+    //
+    // where A is the fine-scale stiffness matrix (interior nodes).
+    //
+    // Our corrected basis is constructed by a localized approximation, so this does not hold exactly.
+    // We can, however, choose an oversampling parameter so large that each corrector problem is a global problem.
+    // In this case, the above property should still hold.
+
+    // Make sure interior is not empty, because Eigen's SVD fails on empty matrices
+    const auto coarse = *rc::gen::suchThat(crest::gen::arbitrary_unit_square_mesh(),
+                                           [] (const auto & mesh) {
+                                               return !mesh.compute_interior_vertices().empty();
+                                           }).as("coarse mesh");
+    const auto fine = *crest::gen::arbitrary_refinement(coarse).as("fine mesh");
+
+    const auto fine_interior = fine.compute_interior_vertices();
+    const auto coarse_interior = coarse.compute_interior_vertices();
+    const auto fine_basis = LagrangeBasis2d<double>(fine);
+
+    const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
+    const auto basis_weights = crest::detail::corrected_basis_coefficients(coarse, fine, oversampling);
+    const auto basis_interior_weights = sparse_submatrix(basis_weights, coarse_interior, fine_interior);
+
+    // Construct a basis for W_H, the kernel of I_H.
+    const Eigen::MatrixXd I_H = sparse_submatrix(crest::quasi_interpolator(coarse, fine), coarse_interior, fine_interior);
+    const Eigen::JacobiSVD<Eigen::MatrixXd> svd(I_H, Eigen::ComputeFullV);
+    const auto r = svd.rank();
+    const auto n = I_H.cols();
+    const Eigen::MatrixXd W_H_kernel_basis = svd.matrixV().rightCols(n - r);
+
+    const Eigen::MatrixXd W = basis_interior_weights;
+    const Eigen::MatrixXd A = sparse_submatrix(fine_basis.assemble().stiffness, fine_interior, fine_interior);
+    const auto & N = W_H_kernel_basis;
+
+    const Eigen::MatrixXd product = W * A * N;
+
+    RC_LOG() << "W:   " << std::endl << W << std::endl << std::endl;
+    RC_LOG() << "A:   " << std::endl << A << std::endl << std::endl;
+    RC_LOG() << "N:   " << std::endl << N << std::endl << std::endl;
+    RC_LOG() << "WAN: " << std::endl << product << std::endl << std::endl;
+
+    RC_ASSERT(product.isZero(1e-14));
 }
 
 TEST(standard_coarse_basis_in_fine_space, basic_mesh)

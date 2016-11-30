@@ -317,7 +317,7 @@ protected:
         const auto initial_mesh_corners = l_shaped.second;
 
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
-        const auto oversampling = 2;
+        const auto oversampling = 4;
         const auto basis = crest::HomogenizedBasis<double>(coarse_fine_meshes.coarse,
                                                            coarse_fine_meshes.fine,
                                                            oversampling);
