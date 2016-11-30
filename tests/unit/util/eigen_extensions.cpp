@@ -102,7 +102,7 @@ TEST_F(sparse_submatrix_test, dense_5x5_all_indices)
 
     EXPECT_THAT(mat.rows(), Eq(5));
     EXPECT_THAT(mat.cols(), Eq(5));
-    EXPECT_THAT(mat.nonZeros(), Eq(24));
+    EXPECT_THAT(mat.nonZeros(), Eq(25));
 
     const Eigen::MatrixXi expected = Eigen::MatrixXi(dense_5x5);
 

@@ -55,18 +55,13 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
         {
             while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
             {
-                current_submat_row += 1;
+                ++current_submat_row;
             }
 
             if (current_submat_row < submat_rows && it.row() == rows[current_submat_row])
             {
                 const auto val = it.value();
-                // Take the opportunity to prune exact zeros
-                if (val != Scalar(0))
-                {
-                    submat.insert(current_submat_row, col) = it.value();
-                }
-
+                submat.insert(current_submat_row, col) = val;
                 ++current_submat_row;
             }
         }
