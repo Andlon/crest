@@ -29,11 +29,14 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
                                                        const std::vector<Index> & rows,
                                                        const std::vector<Index> & cols)
 {
+    typedef typename Eigen::SparseMatrix<Scalar, 0, Index>::InnerIterator InnerIterator;
     assert(std::is_sorted(rows.cbegin(), rows.cend()) && "Row indices must be sorted.");
     assert(std::is_sorted(cols.cbegin(), cols.cend()) && "Column indices must be sorted.");
 
+    const auto submat_rows = static_cast<Index>(rows.size());
+    const auto submat_cols = static_cast<Index>(cols.size());
 
-    Eigen::SparseMatrix<Scalar, 0, Index> submat(static_cast<Index>(rows.size()), static_cast<Index>(cols.size()));
+    Eigen::SparseMatrix<Scalar, 0, Index> submat(submat_rows, submat_cols);
 
 
     // TODO: Determine vector of exact number of nnz in each column, so we can more accurately reserve
@@ -43,19 +46,28 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
     // TODO: Reserve is crashing on an assertion. Determine why.
     //submat.reserve(Eigen::VectorXi::Constant(static_cast<Index>(cols.size()), largest_column_nnz_number));
 
-    for (Index j = 0; j < submat.cols(); ++j)
+    for (Index col = 0; col < submat.cols(); ++col)
     {
-        for (Index i = 0; i < submat.rows(); ++i)
+        Index current_submat_row = 0;
+        const auto original_col = cols[col];
+
+        for (InnerIterator it(matrix, original_col); it && current_submat_row < submat_rows; ++it)
         {
-            const auto row = rows[i];
-            const auto col = cols[j];
-            // TODO: Rewrite this function so that we loop over NNZs in matrix instead, as now
-            // we have to pay for the binary search of .coeff(), and on top of that we
-            // loop over every (i, j) pair in the submatrix, which is very expensive for a very sparse matrix.
-            const auto coeff = matrix.coeff(row, col);
-            if (coeff != static_cast<Index>(0))
+            while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
             {
-                submat.insert(i, j) = matrix.coeff(row, col);
+                current_submat_row += 1;
+            }
+
+            if (current_submat_row < submat_rows && it.row() == rows[current_submat_row])
+            {
+                const auto val = it.value();
+                // Take the opportunity to prune exact zeros
+                if (val != Scalar(0))
+                {
+                    submat.insert(current_submat_row, col) = it.value();
+                }
+
+                ++current_submat_row;
             }
         }
     }
