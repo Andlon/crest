@@ -25,6 +25,42 @@ Index max_nnz_in_cols(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix)
 }
 
 template <typename Scalar, typename Index>
+Eigen::VectorXi submatrix_sparsity_pattern(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
+                                           const std::vector<Index> & rows,
+                                           const std::vector<Index> & cols)
+{
+    typedef typename Eigen::SparseMatrix<Scalar, 0, Index>::InnerIterator InnerIterator;
+    const auto submat_rows = static_cast<Index>(rows.size());
+    const auto submat_cols = static_cast<Index>(cols.size());
+
+    // Each entry in the vector holds the number of non-zero rows in the column
+    Eigen::VectorXi sparsity_pattern(submat_cols);
+
+    for (Index col = 0; col < submat_cols; ++col)
+    {
+        sparsity_pattern(col) = 0;
+        Index current_submat_row = 0;
+        const auto original_col = cols[col];
+
+        for (InnerIterator it(matrix, original_col); it && current_submat_row < submat_rows; ++it)
+        {
+            while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
+            {
+                ++current_submat_row;
+            }
+
+            if (current_submat_row < submat_rows && it.row() == rows[current_submat_row])
+            {
+                sparsity_pattern(col) += 1;
+                ++current_submat_row;
+            }
+        }
+    }
+
+    return sparsity_pattern;
+};
+
+template <typename Scalar, typename Index>
 Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
                                                        const std::vector<Index> & rows,
                                                        const std::vector<Index> & cols)
@@ -37,20 +73,15 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
     const auto submat_cols = static_cast<Index>(cols.size());
 
     Eigen::SparseMatrix<Scalar, 0, Index> submat(submat_rows, submat_cols);
-
-
-    // TODO: Determine vector of exact number of nnz in each column, so we can more accurately reserve
-    // the appropriate amount of nnzs in submat
-    //const auto largest_column_nnz_number = max_nnz_in_cols(matrix);
-
-    // TODO: Reserve is crashing on an assertion. Determine why.
-    //submat.reserve(Eigen::VectorXi::Constant(static_cast<Index>(cols.size()), largest_column_nnz_number));
+    submat.reserve(submatrix_sparsity_pattern(matrix, rows, cols));
 
     for (Index col = 0; col < submat.cols(); ++col)
     {
         Index current_submat_row = 0;
         const auto original_col = cols[col];
 
+        // We implicitly make the assumption here that the original matrix's columns are relatively sparse,
+        // which is almost always the case.
         for (InnerIterator it(matrix, original_col); it && current_submat_row < submat_rows; ++it)
         {
             while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
