@@ -13,18 +13,6 @@ template <typename Scalar>
 using MatrixX = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
 template <typename Scalar, typename Index>
-Index max_nnz_in_cols(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix)
-{
-    Index max_nnz = 0;
-    for (Index i = 0; i < matrix.cols(); ++i)
-    {
-        const auto nnz = matrix.col(i).nonZeros();
-        if (nnz > max_nnz) max_nnz = nnz;
-    }
-    return max_nnz;
-}
-
-template <typename Scalar, typename Index>
 Eigen::VectorXi submatrix_sparsity_pattern(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
                                            const std::vector<Index> & rows,
                                            const std::vector<Index> & cols)
@@ -73,6 +61,11 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
     const auto submat_cols = static_cast<Index>(cols.size());
 
     Eigen::SparseMatrix<Scalar, 0, Index> submat(submat_rows, submat_cols);
+    if (submat_rows == 0 || submat_cols == 0)
+    {
+        return submat;
+    }
+
     submat.reserve(submatrix_sparsity_pattern(matrix, rows, cols));
 
     for (Index col = 0; col < submat.cols(); ++col)

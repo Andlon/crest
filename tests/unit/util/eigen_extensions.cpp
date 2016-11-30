@@ -59,6 +59,7 @@ TEST_F(sparse_submatrix_test, zero_10x10)
 
     EXPECT_THAT(mat.rows(), Eq(3));
     EXPECT_THAT(mat.cols(), Eq(2));
+    EXPECT_THAT(mat.nonZeros(), Eq(0));
 }
 
 TEST_F(sparse_submatrix_test, diagonal_10x10)
@@ -133,4 +134,49 @@ TEST_F(submatrix_test, dense_5x5_all_indices)
     const Eigen::MatrixXi expected = Eigen::MatrixXi(dense_5x5);
 
     EXPECT_THAT(mat, MatrixEq(expected));
+}
+
+TEST_F(sparse_submatrix_test, sparsity_pattern_zero_10x10) {
+    const auto rows = std::vector<int> { 3, 5, 7 };
+    const auto cols = std::vector<int> { 0, 9 };
+    const auto pattern = submatrix_sparsity_pattern(zero_10x10, rows, cols);
+
+    EXPECT_TRUE(pattern.isZero());
+    EXPECT_THAT(pattern.rows(), Eq(2));
+}
+
+TEST_F(sparse_submatrix_test, sparsity_pattern_diagonal_10x10) {
+    const auto rows = std::vector<int> { 3, 5, 7 };
+    const auto cols = std::vector<int> { 3, 4, 5 };
+    const auto pattern = submatrix_sparsity_pattern(diagonal_10x10, rows, cols);
+
+    EXPECT_THAT(pattern.rows(), Eq(3));
+    EXPECT_THAT(pattern(0), 1);
+    EXPECT_THAT(pattern(1), 0);
+    EXPECT_THAT(pattern(2), 1);
+}
+
+TEST_F(sparse_submatrix_test, sparsity_pattern_dense_5x5_arbitrary_indices)
+{
+    const auto rows = std::vector<int> { 1, 2, 4 };
+    const auto cols = std::vector<int> { 2, 4 };
+    const auto pattern = submatrix_sparsity_pattern(dense_5x5, rows, cols);
+
+    EXPECT_THAT(pattern.rows(), Eq(2));
+    EXPECT_THAT(pattern(0), 3);
+    EXPECT_THAT(pattern(1), 3);
+}
+
+TEST_F(sparse_submatrix_test, sparsity_pattern_dense_5x5_all_indices)
+{
+    const auto rows = std::vector<int> { 0, 1, 2, 3, 4 };
+    const auto cols = std::vector<int> { 0, 1, 2, 3, 4 };
+    const auto pattern = submatrix_sparsity_pattern(dense_5x5, rows, cols);
+
+    EXPECT_THAT(pattern.rows(), Eq(5));
+    EXPECT_THAT(pattern(0), Eq(5));
+    EXPECT_THAT(pattern(1), Eq(5));
+    EXPECT_THAT(pattern(2), Eq(5));
+    EXPECT_THAT(pattern(3), Eq(5));
+    EXPECT_THAT(pattern(4), Eq(5));
 }
