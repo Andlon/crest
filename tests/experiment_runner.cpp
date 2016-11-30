@@ -36,7 +36,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
             { "parameters", {
                                     { "mesh_resolution", result.parameters.mesh_resolution },
                                     { "sample_count", result.parameters.sample_count },
-                                    { "end_time", result.parameters.end_time }
+                                    { "end_time", result.parameters.end_time },
+                                    { "oversampling", result.parameters.oversampling }
                             }}
     };
 
@@ -76,6 +77,11 @@ int main(int, char **)
         params.end_time = input_params["end_time"];
         params.mesh_resolution = input_params["mesh_resolution"];
         params.sample_count = input_params["sample_count"];
+
+        if (!input_params["oversampling"].empty())
+        {
+            params.oversampling = input_params["oversampling"];
+        }
 
         crest::wave::CrankNicolson<double> integrator;
         const auto result = run_experiment(experiment_name, params, integrator)

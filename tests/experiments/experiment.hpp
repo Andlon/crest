@@ -16,6 +16,8 @@ struct ExperimentParameters
     // And number of time samples (including t = 0)
     uint64_t sample_count;
 
+    int oversampling;
+
     // TODO: Enable this switch. For now we always compute Bochner errors
     // bool compute_bochner;
 
@@ -40,6 +42,20 @@ struct ExperimentParameters
     {
         this->sample_count = count;
         return *this;
+    }
+
+    ExperimentParameters & with_oversampling(int oversampling)
+    {
+        this->oversampling = oversampling;
+        return *this;
+    }
+
+    ExperimentParameters()
+    {
+        end_time = 0.0;
+        mesh_resolution = 0.0;
+        sample_count = 0;
+        oversampling = 0;
     }
 };
 
