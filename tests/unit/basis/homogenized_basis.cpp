@@ -187,13 +187,16 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
     // where phi_j denotes the fine-scale basis functions. Then the a-orthogonality of the corrected space V_H and
     // the fine-scale finite element space implies that
     //
-    // A W^T = 0
+    // W A N = 0
     //
-    // where A is the fine-scale stiffness matrix (interior nodes).
+    // where A is the fine-scale stiffness matrix (interior nodes) and N is a basis for W_H = ker(I_H).
+    // In real applications, obtaining a basis for W_H is normally infeasible due to sparsity requirements.
+    // However, since we only do small-scale tests here, we have the luxury of just simply building a dense
+    // basis through the SVD.
     //
-    // Our corrected basis is constructed by a localized approximation, so this does not hold exactly.
+    // Our corrected basis is constructed by a localized approximation, so the above property does not hold exactly.
     // We can, however, choose an oversampling parameter so large that each corrector problem is a global problem.
-    // In this case, the above property should still hold.
+    // In this case, the above property must still hold.
 
     // Make sure interior is not empty, because Eigen's SVD fails on empty matrices
     const auto coarse = *rc::gen::suchThat(crest::gen::arbitrary_unit_square_mesh(),
