@@ -377,6 +377,16 @@ namespace crest
             basis.setFromTriplets(triplets.begin(), triplets.end());
             return basis;
         }
+
+        template <typename Scalar>
+        Eigen::SparseMatrix<Scalar> corrected_basis_coefficients(const IndexedMesh<Scalar, int> & coarse,
+                                                                 const IndexedMesh<Scalar, int> & fine,
+                                                                 unsigned int oversampling)
+        {
+            const auto corrector_weights = homogenized_basis_correctors(coarse, fine, oversampling);
+            const auto lagrange_basis_weights = standard_coarse_basis_in_fine_space(coarse, fine);
+            return lagrange_basis_weights - corrector_weights;
+        }
     }
 
     template <typename Scalar>
@@ -389,9 +399,7 @@ namespace crest
                 : _coarse(coarse), _fine(fine) {
             // TODO: Probably want to change the design of Basis to accommodate the fact that HomogenizedBasis
             // needs to do a lot of computation at construction in order to compute load vectors etc.
-            const auto lagrange_weights = detail::standard_coarse_basis_in_fine_space(coarse, fine);
-            const auto corrector_weights = detail::homogenized_basis_correctors(coarse, fine, oversampling);
-            _basis_weights = lagrange_weights - corrector_weights;
+            _basis_weights = detail::corrected_basis_coefficients(coarse, fine, oversampling);
         }
 
         virtual std::vector<int> boundary_nodes() const override { return _coarse.boundary_vertices(); }
@@ -442,8 +450,9 @@ namespace crest
     template <typename Function2d>
     VectorX<Scalar> HomogenizedBasis<Scalar>::interpolate(const Function2d & f) const
     {
-        LagrangeBasis2d<Scalar> coarse_basis(_coarse);
-        return coarse_basis.interpolate(f);
+        const LagrangeBasis2d<Scalar> fine_basis(_fine);
+        const auto I_H = quasi_interpolator(_coarse, _fine);
+        return I_H * fine_basis.interpolate(f);
     }
 
     template <typename Scalar>
