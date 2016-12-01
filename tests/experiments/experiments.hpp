@@ -71,7 +71,7 @@ crest::IndexedMesh<double, int> minimal_unit_square()
     return crest::IndexedMesh<double, int>(std::move(vertices), std::move(elements));
 };
 
-class HomogeneousLoadUnitSquare : public Experiment
+class HomogeneousDirichletUnitSquare : public Experiment
 {
 protected:
     virtual ExperimentOutput solve(const ExperimentParameters & parameters,
@@ -136,7 +136,7 @@ protected:
     }
 };
 
-class InhomogeneousLoadUnitSquare : public Experiment
+class InhomogeneousDirichletUnitSquare : public Experiment
 {
 protected:
     virtual ExperimentOutput solve(const ExperimentParameters & parameters,

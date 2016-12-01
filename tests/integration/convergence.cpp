@@ -19,7 +19,7 @@ TEST_P(homogeneous_unit_square, crank_nicolson_order_of_convergence)
 {
     const auto expected_result = GetParam();
     crest::wave::CrankNicolson<double> integrator;
-    const auto result = HomogeneousLoadUnitSquare().run(expected_result.parameters, integrator);
+    const auto result = HomogeneousDirichletUnitSquare().run(expected_result.parameters, integrator);
 
     ASSERT_THAT(result.error_summary.l2, DoubleNear(expected_result.error_summary.l2, 1e-9));
     ASSERT_THAT(result.error_summary.h1_semi, DoubleNear(expected_result.error_summary.h1_semi, 1e-7));
@@ -30,7 +30,7 @@ TEST_P(inhomogeneous_unit_square, crank_nicolson_order_of_convergence)
 {
     const auto expected_result = GetParam();
     crest::wave::CrankNicolson<double> integrator;
-    const auto result = InhomogeneousLoadUnitSquare().run(expected_result.parameters, integrator);
+    const auto result = InhomogeneousDirichletUnitSquare().run(expected_result.parameters, integrator);
 
     ASSERT_THAT(result.error_summary.l2, DoubleNear(expected_result.error_summary.l2, 1e-9));
     ASSERT_THAT(result.error_summary.h1_semi, DoubleNear(expected_result.error_summary.h1_semi, 1e-7));

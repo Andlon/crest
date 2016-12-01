@@ -49,9 +49,9 @@ ExperimentResult run_experiment(const std::string & name,
                                 crest::wave::Integrator<double> & integrator)
 {
     if (name == "homogeneous_dirichlet_unit_square") {
-        return HomogeneousLoadUnitSquare().run(params, integrator);
+        return HomogeneousDirichletUnitSquare().run(params, integrator);
     } else if (name == "inhomogeneous_dirichlet_unit_square") {
-        return InhomogeneousLoadUnitSquare().run(params, integrator);
+        return InhomogeneousDirichletUnitSquare().run(params, integrator);
     } else if (name == "homogenized_l_shaped")
     {
         return HomogenizedLShaped().run(params, integrator);
