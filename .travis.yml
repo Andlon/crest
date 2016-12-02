@@ -30,11 +30,10 @@ before_install:
 
   # Install HDF5
   - cd $HOME
-  - mkdir -p deps/hdf5
-  - cd deps/hdf5
   - wget -q https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.0-patch1/bin/linux-centos7-x86_64-gcc485/hdf5-1.10.0-patch1-linux-centos7-x86_64-gcc485-shared.tar.gz
   - tar -xf hdf5-1.10.0-patch1-linux-centos7-x86_64-gcc485-shared.tar.gz
-  - mv hdf5-1.10.0-patch1-linux-centos7-x86_64-gcc485-shared hdf5
+  - mkdir -p deps
+  - mv hdf5-1.10.0-patch1-linux-centos7-x86_64-gcc485-shared deps/hdf5
   # The following environment variable will let cmake find HDF5
   - export HDF5_ROOT=$HOME/deps/hdf5
 
