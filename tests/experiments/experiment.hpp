@@ -21,6 +21,8 @@ struct ExperimentParameters
     std::string basis_export_file;
     std::string basis_import_file;
 
+    std::string integrator_name;
+
     // TODO: Enable this switch. For now we always compute Bochner errors
     // bool compute_bochner;
 
@@ -56,6 +58,12 @@ struct ExperimentParameters
     ExperimentParameters & with_basis_export_file(std::string basis_export_file)
     {
         this->basis_export_file = basis_export_file;
+        return *this;
+    }
+
+    ExperimentParameters & with_integrator_name(std::string integrator)
+    {
+        this->integrator_name = integrator;
         return *this;
     }
 

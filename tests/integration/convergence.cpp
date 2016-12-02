@@ -3,104 +3,191 @@
 
 #include <experiments/experiments.hpp>
 
+#include <tuple>
+#include <memory>
+
 using ::testing::DoubleEq;
 using ::testing::DoubleNear;
 
+typedef std::shared_ptr<crest::wave::Integrator<double>> IntegratorSharedPtr;
 
-class homogeneous_unit_square : public ::testing::TestWithParam<ExperimentResult> {
+/*
+ * The order of convergence tests in this file simply test that the errors are close to some values
+ * that have been verified manually when applying the Method of Manufactured Solutions.
+ */
+
+class homogeneous_unit_square : public ::testing::TestWithParam<std::tuple<IntegratorSharedPtr, ExperimentResult>> {
 
 };
 
-class inhomogeneous_unit_square : public ::testing::TestWithParam<ExperimentResult> {
+class inhomogeneous_unit_square : public ::testing::TestWithParam<std::tuple<IntegratorSharedPtr, ExperimentResult>> {
 
 };
 
-TEST_P(homogeneous_unit_square, crank_nicolson_order_of_convergence)
+TEST_P(homogeneous_unit_square, order_of_convergence)
 {
-    const auto expected_result = GetParam();
-    crest::wave::CrankNicolson<double> integrator;
-    const auto result = HomogeneousDirichletUnitSquare().run(expected_result.parameters, integrator);
+    auto test_params = GetParam();
+    auto integrator = std::get<0>(test_params);
+    const auto expected_result = std::get<1>(test_params);
+    const auto result = HomogeneousDirichletUnitSquare().run(expected_result.parameters, *integrator);
 
     ASSERT_THAT(result.error_summary.l2, DoubleNear(expected_result.error_summary.l2, 1e-9));
     ASSERT_THAT(result.error_summary.h1_semi, DoubleNear(expected_result.error_summary.h1_semi, 1e-7));
     ASSERT_THAT(result.error_summary.h1, DoubleNear(expected_result.error_summary.h1, 1e-7));
 }
 
-TEST_P(inhomogeneous_unit_square, crank_nicolson_order_of_convergence)
+TEST_P(inhomogeneous_unit_square, order_of_convergence)
 {
-    const auto expected_result = GetParam();
-    crest::wave::CrankNicolson<double> integrator;
-    const auto result = InhomogeneousDirichletUnitSquare().run(expected_result.parameters, integrator);
+    auto test_params = GetParam();
+    auto integrator = std::get<0>(test_params);
+    const auto expected_result = std::get<1>(test_params);
+    const auto result = InhomogeneousDirichletUnitSquare().run(expected_result.parameters, *integrator);
 
     ASSERT_THAT(result.error_summary.l2, DoubleNear(expected_result.error_summary.l2, 1e-9));
     ASSERT_THAT(result.error_summary.h1_semi, DoubleNear(expected_result.error_summary.h1_semi, 1e-7));
     ASSERT_THAT(result.error_summary.h1, DoubleNear(expected_result.error_summary.h1, 1e-7));
 }
 
-INSTANTIATE_TEST_CASE_P(homogeneous_unit_square,
+INSTANTIATE_TEST_CASE_P(direct_crank_nicolson,
                         homogeneous_unit_square,
-                        ::testing::Values(
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.100)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.289032060471293)
-                                                                    .with_h1_semi(0.288922983708485)
-                                                                    .with_l2(0.00728286774846731)),
+                        ::testing::Combine(
+                                ::testing::Values(std::make_shared<crest::wave::DirectCrankNicolson<double>>()),
+                                ::testing::Values(
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.25)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.585458541734819)
+                                                                            .with_h1_semi(0.584669994677925)
+                                                                            .with_l2(0.0289167538286227)),
 
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.0750)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.167206590828422)
-                                                                    .with_h1_semi(0.167184054654119)
-                                                                    .with_l2(0.00263556985714594)),
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.125)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.289671336214043)
+                                                                            .with_h1_semi(0.2895515729457)
+                                                                            .with_l2(0.00761102062470874)),
 
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.0625)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.143922838396057)
-                                                                    .with_h1_semi(0.143908016134641)
-                                                                    .with_l2(0.00184830572926679))
-                        ));
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.0625)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.144437769866845)
+                                                                            .with_h1_semi(0.144415884917059)
+                                                                            .with_l2(0.00220311548992367))
+                                )));
 
-INSTANTIATE_TEST_CASE_P(inhomogeneous_unit_square,
+INSTANTIATE_TEST_CASE_P(iterative_crank_nicolson,
+                        homogeneous_unit_square,
+                        ::testing::Combine(
+                                ::testing::Values(std::make_shared<crest::wave::IterativeCrankNicolson<double>>()),
+                                ::testing::Values(
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.25)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.585458541735016)
+                                                                            .with_h1_semi(0.584669994678112)
+                                                                            .with_l2(0.0289167538288395)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.125)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.289671336213969)
+                                                                            .with_h1_semi(0.289551572945625)
+                                                                            .with_l2(0.00761102062490839)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.0625)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.144437769865326)
+                                                                            .with_h1_semi(0.14441588491555)
+                                                                            .with_l2(0.002203115490062))
+                                )));
+
+INSTANTIATE_TEST_CASE_P(direct_crank_nicolson,
                         inhomogeneous_unit_square,
-                        ::testing::Values(
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.100)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.290002304690516)
-                                                                    .with_h1_semi(0.289893587881787)
-                                                                    .with_l2(0.00729105764949143)),
+                        ::testing::Combine(
+                                ::testing::Values(std::make_shared<crest::wave::DirectCrankNicolson<double>>()),
+                                ::testing::Values(
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.25)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.587379118139992)
+                                                                            .with_h1_semi(0.586591995031311)
+                                                                            .with_l2(0.0289494785208848)),
 
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.0750)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.168536181026854)
-                                                                    .with_h1_semi(0.168513724358073)
-                                                                    .with_l2(0.00264946059116889)),
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.125)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.290637174136373)
+                                                                            .with_h1_semi(0.290517800933425)
+                                                                            .with_l2(0.00761895620278423)),
 
-                                ExperimentResult()
-                                        .with_parameters(ExperimentParameters()
-                                                                 .with_end_time(0.5)
-                                                                 .with_mesh_resolution(0.0625)
-                                                                 .with_sample_count(5001))
-                                        .with_error_summary(ErrorSummary()
-                                                                    .with_h1(0.144412511159522)
-                                                                    .with_h1_semi(0.144397779258504)
-                                                                    .with_l2(0.00185031417795632))
-                        ));
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.0625)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.144922764238598)
+                                                                            .with_h1_semi(0.144901003208638)
+                                                                            .with_l2(0.0022048870589444))
+                                )));
+
+INSTANTIATE_TEST_CASE_P(iterative_crank_nicolson,
+                        inhomogeneous_unit_square,
+                        ::testing::Combine(
+                                ::testing::Values(std::make_shared<crest::wave::IterativeCrankNicolson<double>>()),
+                                ::testing::Values(
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.25)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.587379371767793)
+                                                                            .with_h1_semi(0.586592249024436)
+                                                                            .with_l2(0.0289494776458804)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.125)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.290636831113929)
+                                                                            .with_h1_semi(0.290517458731212)
+                                                                            .with_l2(0.00761894063454651)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.0625)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.144922345898392)
+                                                                            .with_h1_semi(0.144900585264829)
+                                                                            .with_l2(0.00220483987973394))
+                                )));

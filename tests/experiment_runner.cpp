@@ -14,6 +14,8 @@
 #include <iomanip>
 #include <string>
 
+#include <memory>
+
 using std::cout;
 using std::endl;
 using std::cerr;
@@ -37,10 +39,12 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                     { "mesh_resolution", result.parameters.mesh_resolution },
                                     { "sample_count", result.parameters.sample_count },
                                     { "end_time", result.parameters.end_time },
-                                    { "oversampling", result.parameters.oversampling }
+                                    { "oversampling", result.parameters.oversampling },
+                                    { "integrator_name", result.parameters.integrator_name },
+                                    { "basis_import_file", result.parameters.basis_import_file },
+                                    { "basis_export_file", result.parameters.basis_export_file }
                             }}
     };
-
     return output;
 }
 
@@ -63,6 +67,22 @@ ExperimentResult run_experiment(const std::string & name,
     }
 }
 
+std::unique_ptr<crest::wave::Integrator<double>> make_integrator(const std::string & name)
+{
+    using namespace crest::wave;
+    if (name == "direct_crank_nicolson")
+    {
+        return std::make_unique<DirectCrankNicolson<double>>();
+    } else if (name == "iterative_crank_nicolson")
+    {
+        return std::make_unique<IterativeCrankNicolson<double>>();
+    } else {
+        return std::unique_ptr<crest::wave::Integrator<double>>();
+    }
+}
+
+
+
 int main(int, char **)
 {
     H5::Exception::dontPrint();
@@ -78,6 +98,7 @@ int main(int, char **)
         params.end_time = input_params["end_time"];
         params.mesh_resolution = input_params["mesh_resolution"];
         params.sample_count = input_params["sample_count"];
+        params.integrator_name = input_params["integrator"];
 
         if (input_params.find("oversampling") != input_params.end())
         {
@@ -94,8 +115,14 @@ int main(int, char **)
             params.basis_import_file = input_params["basis_import_file"];
         }
 
-        crest::wave::CrankNicolson<double> integrator;
-        const auto result = run_experiment(experiment_name, params, integrator)
+        auto integrator = make_integrator(params.integrator_name);
+
+        if (!integrator)
+        {
+            throw std::runtime_error("Unknown integrator requested.");
+        }
+
+        const auto result = run_experiment(experiment_name, params, *integrator)
                 .with_name(experiment_name);
         const auto json = experiment_result_as_json(result);
         cout << json.dump(4) << endl;
