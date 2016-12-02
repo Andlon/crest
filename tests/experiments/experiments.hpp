@@ -10,6 +10,7 @@
 #include <crest/basis/homogenized_basis.hpp>
 #include <crest/geometry/refinement.hpp>
 #include <crest/quadrature/simpsons.hpp>
+#include <crest/io/homogenized_basis_io.hpp>
 
 // TODO: Move this somewhere else
 crest::IndexedMesh<double, int> minimal_unit_square()
@@ -332,9 +333,18 @@ protected:
 
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
         const auto oversampling = parameters.oversampling;
-        const auto basis = crest::HomogenizedBasis<double>(coarse_fine_meshes.coarse,
-                                                           coarse_fine_meshes.fine,
-                                                           oversampling);
+        const auto basis = parameters.basis_import_file.empty()
+                           ? crest::HomogenizedBasis<double>(coarse_fine_meshes.coarse,
+                                                             coarse_fine_meshes.fine,
+                                                             oversampling)
+                           : crest::import_basis(coarse_fine_meshes.coarse,
+                                                 coarse_fine_meshes.fine,
+                                                 parameters.basis_import_file);
+
+        if (!parameters.basis_export_file.empty())
+        {
+            crest::export_basis(basis, parameters.basis_export_file);
+        }
 
         crest::wave::InitialConditions<double> ic;
         ic.u0_h = basis.interpolate(u0);

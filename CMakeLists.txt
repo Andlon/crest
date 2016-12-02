@@ -18,7 +18,8 @@ set(UNIT_TEST_SOURCES
 
 set(INTEGRATION_TEST_SOURCES
         tests/integration/integration.cpp
-        tests/integration/convergence.cpp)
+        tests/integration/convergence.cpp
+        tests/integration/io.cpp)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(GCC_CXX_FLAGS "-Wall -Wextra -Werror -march=native")
@@ -44,6 +45,9 @@ include_directories(SYSTEM external/include)
 # Add rapidcheck for writing property-based tests
 add_subdirectory("external/rapidcheck")
 
+# Add HDF5
+find_package(HDF5 COMPONENTS CXX)
+
 # Unit tests
 add_executable(unit_tests ${UNIT_TEST_SOURCES})
 target_link_libraries(unit_tests gmock gmock_main gtest gtest_main rapidcheck)
@@ -53,8 +57,9 @@ add_custom_target(unit COMMAND unit_tests)
 
 # Integration tests
 add_executable(integration_tests ${INTEGRATION_TEST_SOURCES})
-target_link_libraries(integration_tests gmock gmock_main gtest gtest_main)
+target_link_libraries(integration_tests gmock gmock_main gtest gtest_main rapidcheck ${HDF5_LIBRARIES})
 target_include_directories(integration_tests PRIVATE tests/)
+target_include_directories(integration_tests SYSTEM PRIVATE ${HDF5_INCLUDE_DIRS} external/rapidcheck/extras/gtest/include)
 set_property(TARGET integration_tests PROPERTY CXX_STANDARD 14)
 add_custom_target(integration COMMAND integration_tests)
 
@@ -73,5 +78,6 @@ set_property(TARGET bench_bisect_to_tolerance PROPERTY CXX_STANDARD 14)
 # Run a set of predefined experiments. Used for testing the library
 add_executable(experiments tests/experiment_runner.cpp)
 target_include_directories(experiments PRIVATE tests/)
-target_include_directories(experiments SYSTEM PRIVATE external/json/src)
+target_include_directories(experiments SYSTEM PRIVATE external/json/src ${HDF5_INCLUDE_DIRS})
+target_link_libraries(experiments ${HDF5_LIBRARIES})
 set_property(TARGET experiments PROPERTY CXX_STANDARD 14)

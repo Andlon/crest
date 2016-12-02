@@ -371,10 +371,26 @@ namespace crest
         explicit HomogenizedBasis(const IndexedMesh<Scalar, int> & coarse,
                                   const IndexedMesh<Scalar, int> & fine,
                                   unsigned int oversampling)
-                : _coarse(coarse), _fine(fine) {
+                : _coarse(coarse), _fine(fine)
+        {
             // TODO: Probably want to change the design of Basis to accommodate the fact that HomogenizedBasis
             // needs to do a lot of computation at construction in order to compute load vectors etc.
             _basis_weights = detail::corrected_basis_coefficients(coarse, fine, oversampling);
+        }
+
+        explicit HomogenizedBasis(const IndexedMesh<Scalar, int> & coarse,
+                                  const IndexedMesh<Scalar, int> & fine,
+                                  Eigen::SparseMatrix<double> weights)
+                : _coarse(coarse), _fine(fine)
+        {
+            if (weights.rows() == coarse.num_vertices() && weights.cols() == fine.num_vertices())
+            {
+                _basis_weights = weights;
+            } else
+            {
+                throw std::invalid_argument("Dimensions of basis weights are not compatible with "
+                                                    "supplied coarse and fine meshes.");
+            }
         }
 
         virtual std::vector<int> boundary_nodes() const override { return _coarse.boundary_vertices(); }
@@ -398,6 +414,8 @@ namespace crest
         Scalar error_h1_semi(const Function2d_x & f_x,
                              const Function2d_y & f_y,
                              const VectorX<Scalar> & weights) const;
+
+        const Eigen::SparseMatrix<Scalar> & basis_weights() const { return _basis_weights; }
 
     private:
         Eigen::SparseMatrix<Scalar> _basis_weights;

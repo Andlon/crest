@@ -65,6 +65,7 @@ ExperimentResult run_experiment(const std::string & name,
 
 int main(int, char **)
 {
+    H5::Exception::dontPrint();
     try
     {
         nlohmann::json j;
@@ -78,9 +79,19 @@ int main(int, char **)
         params.mesh_resolution = input_params["mesh_resolution"];
         params.sample_count = input_params["sample_count"];
 
-        if (!input_params["oversampling"].empty())
+        if (input_params.find("oversampling") != input_params.end())
         {
             params.oversampling = input_params["oversampling"];
+        }
+
+        if (input_params.find("basis_export_file") != input_params.end())
+        {
+            params.basis_export_file = input_params["basis_export_file"];
+        }
+
+        if (input_params.find("basis_import_file") != input_params.end())
+        {
+            params.basis_import_file = input_params["basis_import_file"];
         }
 
         crest::wave::CrankNicolson<double> integrator;

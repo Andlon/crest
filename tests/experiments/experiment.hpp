@@ -18,6 +18,9 @@ struct ExperimentParameters
 
     int oversampling;
 
+    std::string basis_export_file;
+    std::string basis_import_file;
+
     // TODO: Enable this switch. For now we always compute Bochner errors
     // bool compute_bochner;
 
@@ -47,6 +50,12 @@ struct ExperimentParameters
     ExperimentParameters & with_oversampling(int oversampling)
     {
         this->oversampling = oversampling;
+        return *this;
+    }
+
+    ExperimentParameters & with_basis_export_file(std::string basis_export_file)
+    {
+        this->basis_export_file = basis_export_file;
         return *this;
     }
 
