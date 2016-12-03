@@ -191,3 +191,39 @@ INSTANTIATE_TEST_CASE_P(iterative_crank_nicolson,
                                                                             .with_h1_semi(0.144900585264829)
                                                                             .with_l2(0.00220483987973394))
                                 )));
+
+INSTANTIATE_TEST_CASE_P(iterative_leapfrog,
+                        inhomogeneous_unit_square,
+                        ::testing::Combine(
+                                ::testing::Values(std::make_shared<crest::wave::IterativeLeapfrog<double>>()),
+                                ::testing::Values(
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.25)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.587378020587716)
+                                                                            .with_h1_semi(0.586590792266803)
+                                                                            .with_l2(0.0289506641927545)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.125)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.290625227318885)
+                                                                            .with_h1_semi(0.290505802110512)
+                                                                            .with_l2(0.00761996738873146)),
+
+                                        ExperimentResult()
+                                                .with_parameters(ExperimentParameters()
+                                                                         .with_end_time(0.5)
+                                                                         .with_mesh_resolution(0.0625)
+                                                                         .with_sample_count(401))
+                                                .with_error_summary(ErrorSummary()
+                                                                            .with_h1(0.144948283932812)
+                                                                            .with_h1_semi(0.144926498965492)
+                                                                            .with_l2(0.00220611626654336))
+                                )));
