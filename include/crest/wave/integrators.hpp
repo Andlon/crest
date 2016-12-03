@@ -226,6 +226,57 @@ namespace crest
             Eigen::ConjugateGradient<Eigen::SparseMatrix<Scalar>> _cg;
         };
 
+        template <typename Scalar>
+        class LumpedLeapfrog : public Integrator<Scalar>
+        {
+        public:
+            explicit LumpedLeapfrog() {}
+
+            virtual void setup(Scalar dt,
+                               Eigen::SparseMatrix<Scalar> stiffness,
+                               Eigen::SparseMatrix<Scalar> mass) override
+            {
+                (void) dt;
+
+                _diagonal_mass = Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>(mass.rows());
+                for (int i = 0; i < _diagonal_mass.rows(); ++i)
+                {
+                    _diagonal_mass.diagonal()(i) = mass.row(i).sum();
+                }
+
+                _stiffness = std::move(stiffness);
+            }
+
+            virtual VectorX<Scalar> next(int step_index,
+                                         Scalar dt,
+                                         const VectorX<Scalar> & x_curr,
+                                         const VectorX<Scalar> & x_prev,
+                                         const VectorX<Scalar> & b_prev,
+                                         const VectorX<Scalar> & b_curr,
+                                         const VectorX<Scalar> & b_next) override
+            {
+                (void) step_index;
+                (void) b_prev;
+                (void) b_next;
+
+                const auto & M = _diagonal_mass;
+                const auto & A = _stiffness;
+                const auto dt2 = dt * dt;
+
+                const auto rhs = M * (Scalar(2.0) * x_curr - x_prev)
+                                 + dt2 * (b_curr - A * x_curr);
+
+                // Inverting M is just a diagonal matrix inversion
+                const VectorX<Scalar> x_next = M.inverse() * rhs;
+
+                return x_next;
+            }
+
+        private:
+            Eigen::SparseMatrix<Scalar> _stiffness;
+            Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic> _diagonal_mass;
+        };
+
 
     }
 }

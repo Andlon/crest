@@ -76,6 +76,12 @@ std::unique_ptr<crest::wave::Integrator<double>> make_integrator(const std::stri
     } else if (name == "iterative_crank_nicolson")
     {
         return std::make_unique<IterativeCrankNicolson<double>>();
+    } else if (name == "iterative_leapfrog")
+    {
+        return std::make_unique<IterativeLeapfrog<double>>();
+    } else if (name == "lumped_leapfrog")
+    {
+        return std::make_unique<LumpedLeapfrog<double>>();
     } else {
         return std::unique_ptr<crest::wave::Integrator<double>>();
     }
