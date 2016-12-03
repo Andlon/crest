@@ -100,7 +100,7 @@ namespace crest
                 if (_c_factor.info() != Eigen::Success)
                 {
                     // TODO Throw appropriate exception?
-                    throw new std::logic_error("Did not converge.");
+                    throw std::logic_error("Did not converge.");
                 }
                 return x_next;
             }
@@ -157,7 +157,7 @@ namespace crest
                 if (_cg.info() != Eigen::Success)
                 {
                     // TODO Throw appropriate exception?
-                    throw new std::logic_error("Did not converge.");
+                    throw std::logic_error("Did not converge.");
                 }
                 return x_next;
             }
