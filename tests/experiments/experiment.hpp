@@ -7,72 +7,103 @@
 #include <string>
 #include <cmath>
 
-struct ExperimentParameters
-{
-    // Run the experiment for the time interval [0, end_time]
-    double end_time;
-    // With mesh resolution h
-    double mesh_resolution;
-    // And number of time samples (including t = 0)
-    uint64_t sample_count;
+#include <boost/optional.hpp>
 
-    int oversampling;
+struct OfflineParameters
+{
+    unsigned int oversampling;
+    double mesh_resolution;
 
     std::string basis_export_file;
     std::string basis_import_file;
 
-    std::string integrator_name;
+    OfflineParameters()
+            : oversampling(0),
+              mesh_resolution(0.0)
+    { }
 
-    // TODO: Enable this switch. For now we always compute Bochner errors
-    // bool compute_bochner;
-
-    double dt() const
-    {
-        return end_time / (sample_count - 1);
-    }
-
-    ExperimentParameters & with_end_time(double t)
-    {
-        this->end_time = t;
-        return *this;
-    }
-
-    ExperimentParameters & with_mesh_resolution(double res)
-    {
-        this->mesh_resolution = res;
-        return *this;
-    }
-
-    ExperimentParameters & with_sample_count(uint64_t count)
-    {
-        this->sample_count = count;
-        return *this;
-    }
-
-    ExperimentParameters & with_oversampling(int oversampling)
+    OfflineParameters & with_oversampling(unsigned int oversampling)
     {
         this->oversampling = oversampling;
         return *this;
     }
 
-    ExperimentParameters & with_basis_export_file(std::string basis_export_file)
+    OfflineParameters & with_mesh_resolution(double mesh_resolution)
     {
-        this->basis_export_file = basis_export_file;
+        this->mesh_resolution = mesh_resolution;
         return *this;
     }
 
-    ExperimentParameters & with_integrator_name(std::string integrator)
+    OfflineParameters & with_basis_export_file(std::string path)
     {
-        this->integrator_name = integrator;
+        this->basis_export_file = path;
         return *this;
     }
 
-    ExperimentParameters()
+    OfflineParameters & with_basis_import_file(std::string path)
     {
-        end_time = 0.0;
-        mesh_resolution = 0.0;
-        sample_count = 0;
-        oversampling = 0;
+        this->basis_import_file = path;
+        return *this;
+    }
+};
+
+struct OnlineParameters
+{
+    double end_time;
+    uint64_t sample_count;
+
+    std::string integrator_name;
+
+    OnlineParameters()
+            : end_time(0.0), sample_count(0)
+    {}
+
+    OnlineParameters & with_end_time(double end_time)
+    {
+        this->end_time = end_time;
+        return *this;
+    }
+
+    OnlineParameters & with_sample_count(uint64_t sample_count)
+    {
+        this->sample_count = sample_count;
+        return *this;
+    }
+
+    OnlineParameters & with_integrator_name(std::string name)
+    {
+        this->integrator_name = name;
+        return *this;
+    }
+
+    double dt() const
+    {
+        return end_time / (sample_count - 1);
+    }
+};
+
+struct ExperimentInput
+{
+    std::string                         name;
+    OfflineParameters                   offline_parameters;
+    boost::optional<OnlineParameters>   online_parameters;
+
+    ExperimentInput & with_name(std::string name)
+    {
+        this->name = name;
+        return *this;
+    }
+
+    ExperimentInput & with_offline_parameters(OfflineParameters parameters)
+    {
+        this->offline_parameters = parameters;
+        return *this;
+    }
+
+    ExperimentInput & with_online_parameters(OnlineParameters parameters)
+    {
+        this->online_parameters = parameters;
+        return *this;
     }
 };
 
@@ -87,15 +118,6 @@ struct ErrorSummary
     double l2;
     double h1;
     double h1_semi;
-
-    /*
-     * If bochner is true, then the errors represent error in time as well as space.
-     * That is, the errors are computed in terms of Bochner norms.
-     * Otherwise, only the error at the final sample was measured.
-     *
-     * TODO: Enable this feature
-     */
-//    bool bochner;
 
     ErrorSummary & with_l2(double error)
     {
@@ -114,21 +136,38 @@ struct ErrorSummary
         this->h1_semi = error;
         return *this;
     }
-
 };
 
-struct ExperimentOutput
+
+struct OfflineResult
 {
     MeshDetails mesh_details;
+
+    OfflineResult & with_mesh_details(MeshDetails mesh_details)
+    {
+        this->mesh_details = mesh_details;
+        return *this;
+    }
+};
+
+struct OnlineResult
+{
     ErrorSummary error_summary;
+
+    OnlineResult & with_error_summary(ErrorSummary summary)
+    {
+        this->error_summary = summary;
+        return *this;
+    }
 };
 
 struct ExperimentResult
 {
-    std::string             name;
-    ExperimentParameters    parameters;
-    MeshDetails             mesh_details;
-    ErrorSummary            error_summary;
+    std::string                         name;
+    OfflineParameters                   offline_parameters;
+    boost::optional<OnlineParameters>   online_parameters;
+    OfflineResult                       offline_result;
+    boost::optional<OnlineResult>       online_result;
 
     ExperimentResult & with_name(std::string name)
     {
@@ -136,64 +175,82 @@ struct ExperimentResult
         return *this;
     }
 
-    ExperimentResult & with_parameters(const ExperimentParameters & param)
+    ExperimentResult & with_offline_parameters(OfflineParameters param)
     {
-        this->parameters = param;
+        this->offline_parameters = param;
         return *this;
     }
 
-    ExperimentResult & with_mesh_details(const MeshDetails & details)
+    ExperimentResult & with_online_parameters(OnlineParameters param)
     {
-        this->mesh_details = details;
+        this->online_parameters = param;
         return *this;
     }
 
-    ExperimentResult & with_error_summary(const ErrorSummary & summary)
+    ExperimentResult & with_online_parameters(boost::optional<OnlineParameters> param)
     {
-        this->error_summary = summary;
+        this->online_parameters = param;
+        return *this;
+    }
+
+    ExperimentResult & with_offline_result(OfflineResult result)
+    {
+        this->offline_result = result;
+        return *this;
+    }
+
+    ExperimentResult & with_online_result(OnlineResult result)
+    {
+        this->online_result = result;
+        return *this;
+    }
+
+    ExperimentResult & with_online_result(boost::optional<OnlineResult> result)
+    {
+        this->online_result = result;
         return *this;
     }
 };
 
-void verify_parameter_validity(const ExperimentParameters & parameters);
+void verify_parameter_validity(const OfflineParameters & parameters);
+void verify_parameter_validity(const OnlineParameters & parameters);
 
 class Experiment
 {
 public:
     virtual ~Experiment() {}
 
-    ExperimentResult run(const ExperimentParameters & parameters,
-                         crest::wave::Integrator<double> & integrator) const
+    OfflineResult run_offline(const OfflineParameters & parameters)
     {
         verify_parameter_validity(parameters);
-        const auto output = solve(parameters, integrator);
-        ExperimentResult result;
-        result.parameters = parameters;
-        result.mesh_details = output.mesh_details;
-        result.error_summary = output.error_summary;
-        return result;
+        return solve_offline(parameters);
     }
 
-//    virtual std::string name() const = 0;
+    OnlineResult run_online(const OnlineParameters & parameters,
+                            crest::wave::Integrator<double> & integrator)
+    {
+        verify_parameter_validity(parameters);
+        return solve_online(parameters, integrator);
+    }
 
 protected:
-    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
-                                   crest::wave::Integrator<double> & integrator) const = 0;
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) = 0;
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) = 0;
 
     /**
      * Helper function for implementing solve()
      */
     template <typename BasisImpl, typename Function2dt, typename Function2dt_x, typename Function2dt_y>
-    ExperimentOutput solve_and_analyze(const Function2dt & u,
-                                       const Function2dt_x & u_x,
-                                       const Function2dt_y & u_y,
-                                       const ExperimentParameters & parameters,
-                                       const crest::IndexedMesh<double, int> mesh,
-                                       const crest::Basis<double, BasisImpl> & basis,
-                                       const crest::wave::InitialConditions<double> & initial_conditions,
-                                       const crest::wave::ConstrainedSystem<double> & system,
-                                       crest::wave::Integrator<double> & integrator,
-                                       const crest::wave::Initializer<double> & initializer) const
+    OnlineResult solve_and_analyze(const Function2dt & u,
+                                   const Function2dt_x & u_x,
+                                   const Function2dt_y & u_y,
+                                   const OnlineParameters & parameters,
+                                   const crest::Basis<double, BasisImpl> & basis,
+                                   const crest::wave::InitialConditions<double> & initial_conditions,
+                                   const crest::wave::ConstrainedSystem<double> & system,
+                                   crest::wave::Integrator<double> & integrator,
+                                   const crest::wave::Initializer<double> & initializer) const
     {
         const auto dt = parameters.dt();
         const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
@@ -214,10 +271,6 @@ protected:
             h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
             h1_error_at_each_step.push_back(sample_error.h1);
         }
-
-        MeshDetails mesh_details;
-        mesh_details.num_elements = mesh.num_elements();
-        mesh_details.num_vertices = mesh.num_vertices();
 
         ErrorSummary errors;
 
@@ -243,15 +296,11 @@ protected:
                 break;
         }
 
-        ExperimentOutput output;
-        output.error_summary = errors;
-        output.mesh_details = mesh_details;
-
-        return output;
+        return OnlineResult().with_error_summary(errors);
     };
 };
 
-inline void verify_parameter_validity(const ExperimentParameters & parameters)
+inline void verify_parameter_validity(const OnlineParameters & parameters)
 {
     if (parameters.end_time <= 0.0 || !std::isfinite(parameters.end_time))
     {
@@ -261,7 +310,10 @@ inline void verify_parameter_validity(const ExperimentParameters & parameters)
     if (parameters.sample_count < 1) {
         throw std::invalid_argument("Number of samples N must be 1 or greater.");
     }
+}
 
+inline void verify_parameter_validity(const OfflineParameters & parameters)
+{
     if (parameters.mesh_resolution <= 0.0 || !std::isfinite(parameters.mesh_resolution))
     {
         throw std::invalid_argument("Spatial resolution h must be finite and greater than zero.");

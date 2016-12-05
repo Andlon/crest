@@ -12,6 +12,8 @@
 #include <crest/quadrature/simpsons.hpp>
 #include <crest/io/homogenized_basis_io.hpp>
 
+#include <memory>
+
 // TODO: Move this somewhere else
 crest::IndexedMesh<double, int> minimal_unit_square()
 {
@@ -35,9 +37,30 @@ crest::IndexedMesh<double, int> minimal_unit_square()
 
 class HomogeneousDirichletUnitSquare : public Experiment
 {
+private:
+    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::LagrangeBasis2d<double> Basis;
+
+    std::unique_ptr<const Mesh> mesh;
+    std::unique_ptr<const Basis>  basis;
+
 protected:
-    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
-                                   crest::wave::Integrator<double> & integrator) const override
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
+    {
+        const auto h = parameters.mesh_resolution;
+        const auto refined_mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
+        mesh = std::make_unique<const Mesh>(std::move(refined_mesh));
+        basis = std::make_unique<const Basis>(*mesh);
+
+        MeshDetails mesh_details;
+        mesh_details.num_elements = mesh->num_elements();
+        mesh_details.num_vertices = mesh->num_vertices();
+
+        return OfflineResult().with_mesh_details(mesh_details);
+    }
+
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) override
     {
         constexpr double PI = 3.1415926535897932385;
         constexpr double PI_SQUARED = PI * PI;
@@ -80,29 +103,45 @@ protected:
             return 4.0 * PI_SQUARED * cos(2.0 * PI * t) * sin(2.0 * PI * x) * sin(2.0 * PI * y);
         };
 
-        const auto h = parameters.mesh_resolution;
-
-        const auto mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
-        const auto basis = crest::LagrangeBasis2d<double>(mesh);
-
         crest::wave::InitialConditions<double> ic;
-        ic.u0_h = basis.interpolate(u0);
-        ic.v0_h = basis.interpolate(v0);
-        ic.u0_tt_h = basis.interpolate(u0_tt);
+        ic.u0_h = basis->interpolate(u0);
+        ic.v0_h = basis->interpolate(v0);
+        ic.u0_tt_h = basis->interpolate(u0_tt);
 
-        const auto load = crest::wave::make_basis_load_function<4>(f, basis);
-        const auto bc = crest::wave::HomogeneousDirichletBC<double>::assemble(basis, load);
+        const auto load = crest::wave::make_basis_load_function<4>(f, *basis);
+        const auto bc = crest::wave::HomogeneousDirichletBC<double>::assemble(*basis, load);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
-        return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, bc, integrator, initializer);
+        return solve_and_analyze(u, u_x, u_y, parameters, *basis, ic, bc, integrator, initializer);
     }
 };
 
 class InhomogeneousDirichletUnitSquare : public Experiment
 {
+private:
+    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::LagrangeBasis2d<double> Basis;
+
+    std::unique_ptr<const Mesh> mesh;
+    std::unique_ptr<const Basis>  basis;
+
 protected:
-    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
-                                   crest::wave::Integrator<double> & integrator) const override
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
+    {
+        const auto h = parameters.mesh_resolution;
+        const auto refined_mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
+        mesh = std::make_unique<const Mesh>(std::move(refined_mesh));
+        basis = std::make_unique<const Basis>(*mesh);
+
+        MeshDetails mesh_details;
+        mesh_details.num_vertices = mesh->num_vertices();
+        mesh_details.num_elements = mesh->num_elements();
+
+        return OfflineResult().with_mesh_details(mesh_details);
+    }
+
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) override
     {
         constexpr double PI = 3.1415926535897932385;
         constexpr double PI_SQUARED = PI * PI;
@@ -157,22 +196,17 @@ protected:
             return - 4 * PI_SQUARED * (x * x) * cos(2 * PI * t * x);
         };
 
-        const auto h = parameters.mesh_resolution;
-
-        const auto mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
-        const auto basis = crest::LagrangeBasis2d<double>(mesh);
-
         crest::wave::InitialConditions<double> ic;
-        ic.u0_h = basis.interpolate(u0);
-        ic.v0_h = basis.interpolate(v0);
-        ic.u0_tt_h = basis.interpolate(u0_tt);
+        ic.u0_h = basis->interpolate(u0);
+        ic.v0_h = basis->interpolate(v0);
+        ic.u0_tt_h = basis->interpolate(u0_tt);
 
-        const auto load = crest::wave::make_basis_load_function<4>(f, basis);
+        const auto load = crest::wave::make_basis_load_function<4>(f, *basis);
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(basis, load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, load, g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
-        return solve_and_analyze(u, u_x, u_y, parameters, mesh, basis, ic, bc, integrator, initializer);
+        return solve_and_analyze(u, u_x, u_y, parameters, *basis, ic, bc, integrator, initializer);
     }
 };
 
@@ -321,9 +355,16 @@ protected:
 
 class HomogenizedLShaped : public LShapedBase
 {
+private:
+    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::HomogenizedBasis<double> Basis;
+
+    std::unique_ptr<const Mesh>         coarse_mesh;
+    std::unique_ptr<const Mesh>         fine_mesh;
+    std::unique_ptr<const Basis>    basis;
+
 protected:
-    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
-                                   crest::wave::Integrator<double> & integrator) const override
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
         const auto h = parameters.mesh_resolution;
 
@@ -332,40 +373,60 @@ protected:
         const auto initial_mesh_corners = l_shaped.second;
 
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
+        coarse_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.coarse));
+        fine_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+
         const auto oversampling = parameters.oversampling;
-        const auto basis = parameters.basis_import_file.empty()
-                           ? crest::HomogenizedBasis<double>(coarse_fine_meshes.coarse,
-                                                             coarse_fine_meshes.fine,
-                                                             oversampling)
-                           : crest::import_basis(coarse_fine_meshes.coarse,
-                                                 coarse_fine_meshes.fine,
-                                                 parameters.basis_import_file);
+        basis = parameters.basis_import_file.empty()
+                ? std::make_unique<const Basis>(*coarse_mesh,
+                                                *fine_mesh,
+                                                oversampling)
+                : std::make_unique<const Basis>(
+                        std::move(crest::import_basis(*coarse_mesh,
+                                                      *fine_mesh,
+                                                      parameters.basis_import_file)));
 
         if (!parameters.basis_export_file.empty())
         {
-            crest::export_basis(basis, parameters.basis_export_file);
+            crest::export_basis(*basis, parameters.basis_export_file);
         }
 
-        crest::wave::InitialConditions<double> ic;
-        ic.u0_h = basis.interpolate(u0);
-        ic.v0_h = basis.interpolate(v0);
-        ic.u0_tt_h = basis.interpolate(u0_tt);
+        MeshDetails mesh_details;
+        mesh_details.num_elements = coarse_mesh->num_elements();
+        mesh_details.num_vertices = coarse_mesh->num_vertices();
 
-        const auto load = crest::wave::make_basis_load_function<4>(f, basis);
+        return OfflineResult().with_mesh_details(mesh_details);
+    }
+
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) override
+    {
+        crest::wave::InitialConditions<double> ic;
+        ic.u0_h = basis->interpolate(u0);
+        ic.v0_h = basis->interpolate(v0);
+        ic.u0_tt_h = basis->interpolate(u0_tt);
+
+        const auto load = crest::wave::make_basis_load_function<4>(f, *basis);
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(basis, load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, load, g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
-        return solve_and_analyze(u, u_x, u_y, parameters, coarse_fine_meshes.coarse,
-                                 basis, ic, bc, integrator, initializer);
+        return solve_and_analyze(u, u_x, u_y, parameters,
+                                 *basis, ic, bc, integrator, initializer);
     }
 };
 
-class StandardLShaped : public LShapedBase
+class StandardLShaped final : public LShapedBase
 {
+private:
+    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::LagrangeBasis2d<double> Basis;
+
+    std::unique_ptr<const Mesh>         mesh;
+    std::unique_ptr<const Basis>    basis;
+
 protected:
-    virtual ExperimentOutput solve(const ExperimentParameters & parameters,
-                                   crest::wave::Integrator<double> & integrator) const override
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
         const auto h = parameters.mesh_resolution;
 
@@ -374,21 +435,30 @@ protected:
         const auto initial_mesh_corners = l_shaped.second;
 
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
-        const auto mesh = coarse_fine_meshes.coarse;
+        mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+        basis = std::make_unique<const Basis>(*mesh);
 
-        const auto basis = crest::LagrangeBasis2d<double>(coarse_fine_meshes.fine);
+        MeshDetails mesh_details;
+        mesh_details.num_elements = mesh->num_elements();
+        mesh_details.num_vertices = mesh->num_vertices();
 
+        return OfflineResult().with_mesh_details(mesh_details);
+    }
+
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) override
+    {
         crest::wave::InitialConditions<double> ic;
-        ic.u0_h = basis.interpolate(u0);
-        ic.v0_h = basis.interpolate(v0);
-        ic.u0_tt_h = basis.interpolate(u0_tt);
+        ic.u0_h = basis->interpolate(u0);
+        ic.v0_h = basis->interpolate(v0);
+        ic.u0_tt_h = basis->interpolate(u0_tt);
 
-        const auto load = crest::wave::make_basis_load_function<4>(f, basis);
+        const auto load = crest::wave::make_basis_load_function<4>(f, *basis);
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(basis, load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, load, g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
-        return solve_and_analyze(u, u_x, u_y, parameters, coarse_fine_meshes.fine,
-                                 basis, ic, bc, integrator, initializer);
+        return solve_and_analyze(u, u_x, u_y, parameters,
+                                 *basis, ic, bc, integrator, initializer);
     }
 };

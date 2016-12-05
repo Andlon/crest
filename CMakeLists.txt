@@ -48,6 +48,10 @@ add_subdirectory("external/rapidcheck")
 # Add HDF5
 find_package(HDF5 COMPONENTS CXX)
 
+# Boost
+find_package(Boost 1.58 REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
 # Unit tests
 add_executable(unit_tests ${UNIT_TEST_SOURCES})
 target_link_libraries(unit_tests gmock gmock_main gtest gtest_main rapidcheck)

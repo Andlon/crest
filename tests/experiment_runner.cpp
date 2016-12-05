@@ -13,8 +13,10 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-
 #include <memory>
+#include <sstream>
+
+#include <boost/optional.hpp>
 
 using std::cout;
 using std::endl;
@@ -24,44 +26,61 @@ using std::setw;
 auto experiment_result_as_json(const ExperimentResult & result)
 {
     using nlohmann::json;
+
     json output = {
             { "experiment", result.name },
-            { "mesh", {
-                                    {"num_vertices", result.mesh_details.num_vertices },
-                                    {"num_elements", result.mesh_details.num_elements }
-                            }},
-            { "error_summary", {
-                                    { "h1", result.error_summary.h1 },
-                                    { "h1_semi", result.error_summary.h1_semi },
-                                    { "l2", result.error_summary.l2 }
-                            }},
-            { "parameters", {
-                                    { "mesh_resolution", result.parameters.mesh_resolution },
-                                    { "sample_count", result.parameters.sample_count },
-                                    { "end_time", result.parameters.end_time },
-                                    { "oversampling", result.parameters.oversampling },
-                                    { "integrator_name", result.parameters.integrator_name },
-                                    { "basis_import_file", result.parameters.basis_import_file },
-                                    { "basis_export_file", result.parameters.basis_export_file }
+            { "offline", {
+                                    { "parameters", {
+                                                            { "mesh_resolution", result.offline_parameters.mesh_resolution },
+                                                            { "oversampling", result.offline_parameters.oversampling },
+                                                            { "basis_import_file", result.offline_parameters.basis_import_file },
+                                                            { "basis_export_file", result.offline_parameters.basis_export_file }
+                                                    }},
+                                    { "result", {
+                                                        { "mesh_details", {
+                                                                                  { "num_vertices", result.offline_result.mesh_details.num_vertices },
+                                                                                  { "num_elements", result.offline_result.mesh_details.num_elements }
+                                                                          }}
+                                                }}
                             }}
     };
+
+    if (result.online_parameters && result.online_result)
+    {
+        output["online"] = {
+                { "parameters", {
+                        { "end_time", result.online_parameters->end_time },
+                        { "sample_count", result.online_parameters->sample_count },
+                        { "integrator", result.online_parameters->integrator_name }
+                }},
+                { "result", {
+                        { "error_summary", {
+                                { "h1", result.online_result->error_summary.h1 },
+                                { "h1_semi", result.online_result->error_summary.h1_semi },
+                                { "l2", result.online_result->error_summary.l2 }
+                        }}
+                }}
+
+        };
+    } else if (result.online_parameters || result.online_result)
+    {
+        throw new std::logic_error("Internal error: Online results and parameters should either both be absent,"
+                                           " or both be present.");
+    }
+
     return output;
 }
 
-ExperimentResult run_experiment(const std::string & name,
-                                const ExperimentParameters & params,
-                                crest::wave::Integrator<double> & integrator)
+std::unique_ptr<Experiment> make_experiment(const std::string & name)
 {
     if (name == "homogeneous_dirichlet_unit_square") {
-        return HomogeneousDirichletUnitSquare().run(params, integrator);
+        return std::make_unique<HomogeneousDirichletUnitSquare>();
     } else if (name == "inhomogeneous_dirichlet_unit_square") {
-        return InhomogeneousDirichletUnitSquare().run(params, integrator);
-    } else if (name == "homogenized_l_shaped")
-    {
-        return HomogenizedLShaped().run(params, integrator);
-    } else if (name == "standard_l_shaped")
-    {
-        return StandardLShaped().run(params, integrator);
+        return std::make_unique<InhomogeneousDirichletUnitSquare>();
+    } else if (name == "homogenized_l_shaped") {
+        return std::make_unique<HomogenizedLShaped>();
+    } else if (name == "standard_l_shaped") {
+        return std::make_unique<StandardLShaped>();
     } else {
         throw std::invalid_argument("Unknown experiment requested.");
     }
@@ -88,6 +107,56 @@ std::unique_ptr<crest::wave::Integrator<double>> make_integrator(const std::stri
 }
 
 
+template <typename OutputType = nlohmann::json>
+OutputType extract_mandatory_field(const nlohmann::json & json, const std::string & field_name)
+{
+    const auto it = json.find(field_name);
+    if (it == json.end())
+    {
+        std::stringstream ss;
+        ss << "Mandatory field `" << field_name << "` not found in JSON input.";
+        throw std::runtime_error(ss.str());
+    } else {
+        return *it;
+    }
+}
+
+template <typename OutputType = nlohmann::json>
+boost::optional<OutputType> extract_optional_field(const nlohmann::json & json,
+                                                   const std::string & field_name)
+{
+    const auto it = json.find(field_name);
+    if (it == json.end())
+    {
+        return boost::optional<OutputType>();
+    } else {
+        return *it;
+    }
+}
+
+OfflineParameters parse_offline_parameters(const nlohmann::json & offline_json) {
+    OfflineParameters offline;
+    offline.mesh_resolution = extract_mandatory_field(offline_json, "mesh_resolution");
+    if (const auto oversampling = extract_optional_field(offline_json, "oversampling")) {
+        offline.oversampling = *oversampling;
+    }
+    if (const auto basis_import_file = extract_optional_field(offline_json, "basis_import_file")) {
+        offline.basis_import_file = *basis_import_file;
+    }
+    if (const auto basis_export_file = extract_optional_field(offline_json, "basis_export_file")) {
+        offline.basis_export_file = *basis_export_file;
+    }
+    return offline;
+}
+
+OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
+    OnlineParameters parameters;
+    parameters.integrator_name = extract_mandatory_field(online_json, "integrator");
+    parameters.end_time = extract_mandatory_field(online_json, "end_time");
+    parameters.sample_count = extract_mandatory_field(online_json, "sample_count");
+    return parameters;
+}
+
 
 int main(int, char **)
 {
@@ -97,39 +166,36 @@ int main(int, char **)
         nlohmann::json j;
         std::cin >> j;
 
-        const std::string experiment_name = j["experiment"];
-        const auto input_params = j["parameters"];
+        const auto experiment_name = extract_mandatory_field<std::string>(j, "experiment");
 
-        ExperimentParameters params;
-        params.end_time = input_params["end_time"];
-        params.mesh_resolution = input_params["mesh_resolution"];
-        params.sample_count = input_params["sample_count"];
-        params.integrator_name = input_params["integrator"];
+        const auto offline_json = extract_mandatory_field(j, "offline");
+        const auto optional_online_json = extract_optional_field(j, "online");
 
-        if (input_params.find("oversampling") != input_params.end())
+        const auto offline_param = parse_offline_parameters(offline_json);
+        const auto online_param = optional_online_json
+                                  ? parse_online_parameters(*optional_online_json)
+                                  : boost::optional<OnlineParameters>();
+
+        auto experiment = make_experiment(experiment_name);
+        const auto offline_result = experiment->run_offline(offline_param);
+        boost::optional<OnlineResult> online_result;
+        if (online_param)
         {
-            params.oversampling = input_params["oversampling"];
+            auto integrator = make_integrator(online_param->integrator_name);
+
+            if (integrator) {
+                online_result = experiment->run_online(*online_param, *integrator);
+            } else {
+                throw std::runtime_error("Unknown integrator requested.");
+            }
         }
 
-        if (input_params.find("basis_export_file") != input_params.end())
-        {
-            params.basis_export_file = input_params["basis_export_file"];
-        }
-
-        if (input_params.find("basis_import_file") != input_params.end())
-        {
-            params.basis_import_file = input_params["basis_import_file"];
-        }
-
-        auto integrator = make_integrator(params.integrator_name);
-
-        if (!integrator)
-        {
-            throw std::runtime_error("Unknown integrator requested.");
-        }
-
-        const auto result = run_experiment(experiment_name, params, *integrator)
-                .with_name(experiment_name);
+        const auto result = ExperimentResult()
+                .with_name(experiment_name)
+                .with_offline_parameters(offline_param)
+                .with_online_parameters(online_param)
+                .with_offline_result(offline_result)
+                .with_online_result(online_result);
         const auto json = experiment_result_as_json(result);
         cout << json.dump(4) << endl;
         return 0;
