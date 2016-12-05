@@ -171,6 +171,12 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
 int main(int, char **)
 {
     H5::Exception::dontPrint();
+
+    // Disable automatic multi-threading in Eigen, so that we have predictable behavior. In order to get
+    // decent measurements, we'd rather parallelize explicitly where we actually want to parallelize.
+    // Remember that the main purpose of this binary is not to solve problems as fast as possible,
+    // but to facilitate numerical experimentation, including making inferences about runtime behavior.
+    Eigen::setNbThreads(1);
     try
     {
         nlohmann::json j;

@@ -16,10 +16,14 @@ addons:
       - boost-latest
 
 env:
-  # Ideally we'd also run with CMAKE_BUILD_TYPE=Debug,
-  # but there are some issues with the -fsanitize flags used for the debug builds
-  - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS=""
-  - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS="-DCMAKE_BUILD_TYPE=Release"
+  global:
+    # The default number of OpenMP threads is usually detected to be too high
+    - OMP_NUM_THREADS=4
+  matrix:
+    # Ideally we'd also run with CMAKE_BUILD_TYPE=Debug,
+    # but there are some issues with the -fsanitize flags used for the debug builds
+    - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS=""
+    - COMPILER_NAME=g++ CXX=g++-5 CC=gcc-5 CMAKE_DEFS="-DCMAKE_BUILD_TYPE=Release"
 
 before_install:
   # Install Eigen by copying header files to a system include directory

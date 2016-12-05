@@ -52,6 +52,12 @@ find_package(HDF5 COMPONENTS CXX)
 find_package(Boost 1.54 REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
+# Enable OpenMP if available
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+
 # Unit tests
 add_executable(unit_tests ${UNIT_TEST_SOURCES})
 target_link_libraries(unit_tests gmock gmock_main gtest gtest_main rapidcheck)

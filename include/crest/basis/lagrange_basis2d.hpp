@@ -224,8 +224,10 @@ namespace crest
         const auto basis1 = [] (auto  , auto y) { return Scalar(0.5) * y + Scalar(0.5); };
         const auto basis2 = [] (auto x, auto y) { return Scalar(0.5) * (-x - y); };
 
-        for (const auto element : _mesh.elements())
+#pragma omp parallel for reduction(+:error_squared)
+        for (int element_index = 0; element_index < _mesh.num_elements(); ++element_index)
         {
+            const auto element = _mesh.elements()[element_index];
             const auto z0 = element.vertex_indices[0];
             const auto z1 = element.vertex_indices[1];
             const auto z2 = element.vertex_indices[2];
@@ -279,8 +281,10 @@ namespace crest
         const auto basis2_x = Scalar(-0.5);
         const auto basis2_y = Scalar(-0.5);
 
-        for (const auto element : _mesh.elements())
+#pragma omp parallel for reduction(+:error_squared)
+        for (int element_index = 0; element_index < _mesh.num_elements(); ++element_index)
         {
+            const auto element = _mesh.elements()[element_index];
             const auto z0 = element.vertex_indices[0];
             const auto z1 = element.vertex_indices[1];
             const auto z2 = element.vertex_indices[2];
@@ -327,7 +331,6 @@ namespace crest
 
             const auto absdet = transform.absolute_determinant();
             error_squared += absdet * triquad_ref<QuadStrength, Scalar>(diff_squared);
-
         }
 
         return std::sqrt(error_squared);
