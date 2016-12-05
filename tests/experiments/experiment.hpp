@@ -139,14 +139,29 @@ struct ErrorSummary
     }
 };
 
+struct OfflineTiming
+{
+    double mesh_construction;
+    double basis_construction;
+    double total;
+
+    OfflineTiming() : mesh_construction(0.0), basis_construction(0.0), total(0.0) {}
+};
 
 struct OfflineResult
 {
     MeshDetails mesh_details;
+    OfflineTiming timing;
 
     OfflineResult & with_mesh_details(MeshDetails mesh_details)
     {
         this->mesh_details = mesh_details;
+        return *this;
+    }
+
+    OfflineResult & with_timing(OfflineTiming timing)
+    {
+        this->timing = timing;
         return *this;
     }
 };
@@ -232,8 +247,11 @@ public:
 
     OfflineResult run_offline(const OfflineParameters & parameters)
     {
+        crest::Timer timer;
         verify_parameter_validity(parameters);
-        return solve_offline(parameters);
+        auto result = solve_offline(parameters);
+        result.timing.total = timer.elapsed();
+        return result;
     }
 
     OnlineResult run_online(const OnlineParameters & parameters,

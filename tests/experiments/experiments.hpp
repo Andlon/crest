@@ -47,16 +47,25 @@ private:
 protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
+        OfflineTiming timing;
+        crest::Timer timer;
         const auto h = parameters.mesh_resolution;
         const auto refined_mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
         mesh = std::make_unique<const Mesh>(std::move(refined_mesh));
+
+        timing.mesh_construction = timer.measure_and_reset();
+
         basis = std::make_unique<const Basis>(*mesh);
+
+        timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
         mesh_details.num_elements = mesh->num_elements();
         mesh_details.num_vertices = mesh->num_vertices();
 
-        return OfflineResult().with_mesh_details(mesh_details);
+        return OfflineResult()
+                .with_mesh_details(mesh_details)
+                .with_timing(timing);
     }
 
     virtual OnlineResult solve_online(const OnlineParameters & parameters,
@@ -128,16 +137,25 @@ private:
 protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
+        OfflineTiming timing;
+        crest::Timer timer;
         const auto h = parameters.mesh_resolution;
         const auto refined_mesh = crest::bisect_to_tolerance<double>(minimal_unit_square(), h);
         mesh = std::make_unique<const Mesh>(std::move(refined_mesh));
+
+        timing.mesh_construction = timer.measure_and_reset();
+
         basis = std::make_unique<const Basis>(*mesh);
+
+        timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
         mesh_details.num_vertices = mesh->num_vertices();
         mesh_details.num_elements = mesh->num_elements();
 
-        return OfflineResult().with_mesh_details(mesh_details);
+        return OfflineResult()
+                .with_mesh_details(mesh_details)
+                .with_timing(timing);
     }
 
     virtual OnlineResult solve_online(const OnlineParameters & parameters,
@@ -359,13 +377,15 @@ private:
     typedef crest::IndexedMesh<double, int> Mesh;
     typedef crest::HomogenizedBasis<double> Basis;
 
-    std::unique_ptr<const Mesh>         coarse_mesh;
-    std::unique_ptr<const Mesh>         fine_mesh;
+    std::unique_ptr<const Mesh>     coarse_mesh;
+    std::unique_ptr<const Mesh>     fine_mesh;
     std::unique_ptr<const Basis>    basis;
 
 protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
+        OfflineTiming timing;
+        crest::Timer timer;
         const auto h = parameters.mesh_resolution;
 
         const auto l_shaped = initial_mesh();
@@ -375,6 +395,8 @@ protected:
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
         coarse_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.coarse));
         fine_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+
+        timing.mesh_construction = timer.measure_and_reset();
 
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
@@ -386,6 +408,8 @@ protected:
                                                       *fine_mesh,
                                                       parameters.basis_import_file)));
 
+        timing.basis_construction = timer.measure_and_reset();
+
         if (!parameters.basis_export_file.empty())
         {
             crest::export_basis(*basis, parameters.basis_export_file);
@@ -395,7 +419,9 @@ protected:
         mesh_details.num_elements = coarse_mesh->num_elements();
         mesh_details.num_vertices = coarse_mesh->num_vertices();
 
-        return OfflineResult().with_mesh_details(mesh_details);
+        return OfflineResult()
+                .with_mesh_details(mesh_details)
+                .with_timing(timing);
     }
 
     virtual OnlineResult solve_online(const OnlineParameters & parameters,
@@ -428,6 +454,8 @@ private:
 protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
+        OfflineTiming timing;
+        crest::Timer timer;
         const auto h = parameters.mesh_resolution;
 
         const auto l_shaped = initial_mesh();
@@ -436,13 +464,20 @@ protected:
 
         const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
         mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+
+        timing.mesh_construction = timer.measure_and_reset();
+
         basis = std::make_unique<const Basis>(*mesh);
+
+        timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
         mesh_details.num_elements = mesh->num_elements();
         mesh_details.num_vertices = mesh->num_vertices();
 
-        return OfflineResult().with_mesh_details(mesh_details);
+        return OfflineResult()
+                .with_mesh_details(mesh_details)
+                .with_timing(timing);
     }
 
     virtual OnlineResult solve_online(const OnlineParameters & parameters,

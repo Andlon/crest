@@ -27,6 +27,9 @@ auto experiment_result_as_json(const ExperimentResult & result)
 {
     using nlohmann::json;
 
+    const auto offline_timing = result.offline_result.timing;
+    const auto mesh_details = result.offline_result.mesh_details;
+
     json output = {
             { "experiment", result.name },
             { "offline", {
@@ -38,9 +41,14 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                                     }},
                                     { "result", {
                                                         { "mesh_details", {
-                                                                                  { "num_vertices", result.offline_result.mesh_details.num_vertices },
-                                                                                  { "num_elements", result.offline_result.mesh_details.num_elements }
-                                                                          }}
+                                                                                  { "num_vertices", mesh_details.num_vertices },
+                                                                                  { "num_elements", mesh_details.num_elements }
+                                                                          }},
+                                                        { "timing", {
+                                                                            { "mesh_construction", offline_timing.mesh_construction },
+                                                                            { "basis_construction", offline_timing.basis_construction },
+                                                                            { "total", offline_timing.total }
+                                                                    }}
                                                 }}
                             }}
     };

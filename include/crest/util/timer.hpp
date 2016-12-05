@@ -22,6 +22,18 @@ namespace crest
             return seconds.count();
         }
 
+        void reset()
+        {
+            _start = std::chrono::steady_clock::now();
+        }
+
+        double measure_and_reset()
+        {
+            const auto t = elapsed();
+            reset();
+            return t;
+        }
+
     private:
         std::chrono::steady_clock::time_point _start;
     };
