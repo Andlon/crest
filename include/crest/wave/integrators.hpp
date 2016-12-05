@@ -226,6 +226,16 @@ namespace crest
             Eigen::ConjugateGradient<Eigen::SparseMatrix<Scalar>> _cg;
         };
 
+        namespace detail
+        {
+            template <typename Scalar>
+            Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic> lump_matrix(const Eigen::SparseMatrix<Scalar> & mat)
+            {
+                VectorX<Scalar> row_wise_sum = mat * VectorX<Scalar>::Ones(mat.cols());
+                return Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>(std::move(row_wise_sum));
+            };
+        }
+
         template <typename Scalar>
         class LumpedLeapfrog : public Integrator<Scalar>
         {
@@ -238,12 +248,7 @@ namespace crest
             {
                 (void) dt;
 
-                _diagonal_mass = Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>(mass.rows());
-                for (int i = 0; i < _diagonal_mass.rows(); ++i)
-                {
-                    _diagonal_mass.diagonal()(i) = mass.row(i).sum();
-                }
-
+                _diagonal_mass = detail::lump_matrix(mass);
                 _stiffness = std::move(stiffness);
             }
 
