@@ -230,7 +230,15 @@ namespace crest
                     const auto global_index = coarse.elements()[coarse_element].vertex_indices[i];
                     for (size_t k = 0; k < fine_patch_interior.size(); ++k)
                     {
-                        triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
+                        const auto component = corrector(k);
+                        // Due to rounding issues, some components that should perhaps be zero in exact arithmetic
+                        // may be non-zero, and as such we might end up with a denser matrix than we should actually
+                        // have. To prevent this, we introduce a threshold which determines whether to keep the entry.
+                        // TODO: Make this threshold configurable?
+                        if (std::abs(component) > 1e-12)
+                        {
+                            triplets.emplace_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], component));
+                        }
                     }
                 }
 
