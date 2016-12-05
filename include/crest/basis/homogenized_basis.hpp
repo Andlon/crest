@@ -105,10 +105,9 @@ namespace crest
         }
 
         template <typename Scalar>
-        std::pair<Eigen::SparseMatrix<Scalar>, VectorX<Scalar>> construct_saddle_point_problem(
+        Eigen::SparseMatrix<Scalar> construct_saddle_point_problem(
                 const Eigen::SparseMatrix<Scalar> & A,
-                const Eigen::SparseMatrix<Scalar> & I_H,
-                const VectorX<Scalar> & b)
+                const Eigen::SparseMatrix<Scalar> & I_H)
         {
             // Define the matrix
             //
@@ -149,34 +148,8 @@ namespace crest
             Eigen::SparseMatrix<Scalar> C(A.rows() + I_H.rows(), A.cols() + I_H.rows());
             C.setFromTriplets(triplets.cbegin(), triplets.cend());
 
-            VectorX<Scalar> c(A.rows() + I_H.rows());
-            c.setZero();
-            c.topRows(A.rows()) = b;
-
-            return std::make_pair(C, c);
+            return C;
         };
-
-        template <typename Scalar>
-        VectorX<Scalar> solve_localized_corrector_problem(const Eigen::SparseMatrix<Scalar> & A,
-                                                          const Eigen::SparseMatrix<Scalar> & I_H,
-                                                          const VectorX<Scalar> & b)
-        {
-            const auto constrained_problem = construct_saddle_point_problem(A, I_H, b);
-            const auto C = constrained_problem.first;
-            const auto c = constrained_problem.second;
-            VectorX<Scalar> solution(C.rows());
-
-            // Note: This _may_ run out of memory if I_H is dense (which is the case when using the exact SVD approach)
-            Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
-            solver.analyzePattern(C);
-            solver.factorize(C);
-            assert(solver.info() == Eigen::Success);
-            solution = solver.solve(c);
-
-            // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
-            // we extract x as the corrector.
-            return solution.topRows(A.rows());
-        }
 
         template <typename Scalar>
         Eigen::SparseMatrix<Scalar>
@@ -210,47 +183,60 @@ namespace crest
         }
 
         template <typename Scalar>
-        std::vector<Eigen::Triplet<Scalar>> compute_element_corrector_for_node(
+        std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
                 const IndexedMesh<Scalar, int> & coarse,
                 const IndexedMesh<Scalar, int> & fine,
                 const Eigen::SparseMatrix<Scalar> & fine_stiffness_matrix,
                 const Eigen::SparseMatrix<Scalar> & quasi_interpolator,
                 int coarse_element,
-                int local_index,
                 unsigned int oversampling)
         {
-            assert(local_index >= 0 && local_index < 3);
             assert(coarse_element >= 0 && coarse_element < coarse.num_elements());
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
 
-            const auto global_index = coarse.elements()[coarse_element].vertex_indices[local_index];
             const auto coarse_patch = patch_for_element(coarse, coarse_element, oversampling);
             const auto fine_patch = fine_patch_from_coarse(fine, coarse_patch);
             const auto fine_patch_interior = patch_interior(fine, fine_patch);
 
-            if (fine_patch_interior.empty())
-            {
-                return triplets;
-            } else
+            if (!fine_patch_interior.empty())
             {
                 const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
                                                                     coarse,
                                                                     coarse_patch,
                                                                     fine_patch_interior);
                 const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);
-                const auto b_local = local_rhs(coarse, fine, coarse_element, local_index, fine_patch,
-                                               fine_patch_interior);
 
-                const auto corrector = solve_localized_corrector_problem(A_local, I_H_local, b_local);
+                const auto C = construct_saddle_point_problem(A_local, I_H_local);
 
-                assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
-                for (size_t k = 0; k < fine_patch_interior.size(); ++k)
+                Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
+                solver.analyzePattern(C);
+                solver.factorize(C);
+                assert(solver.info() == Eigen::Success);
+
+                for (int i = 0; i < 3; ++i)
                 {
-                    triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
+                    const auto b_local = local_rhs(coarse, fine, coarse_element, i, fine_patch,
+                                                   fine_patch_interior);
+
+                    VectorX<Scalar> c(C.rows());
+                    c << b_local, VectorX<Scalar>::Zero(I_H_local.rows());
+
+                    // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
+                    // we extract x as the corrector.
+                    const VectorX<Scalar> corrector = solver.solve(c).topRows(A_local.rows());
+
+                    assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
+                    const auto global_index = coarse.elements()[coarse_element].vertex_indices[i];
+                    for (size_t k = 0; k < fine_patch_interior.size(); ++k)
+                    {
+                        triplets.push_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], corrector(k)));
+                    }
                 }
-                return triplets;
+
             }
+
+            return triplets;
         }
 
         template <typename Scalar>
@@ -261,27 +247,23 @@ namespace crest
         {
             const auto I_H = quasi_interpolator(coarse, fine);
 
-            // TODO: Rewrite LagrangeBasis2d so that we can reuse its functionality instead of this workaround
-            const auto assembly = assemble_linear_lagrangian_system_triplets(fine);
             Eigen::SparseMatrix<Scalar> A(fine.num_vertices(), fine.num_vertices());
-            A.setFromTriplets(assembly.stiffness_triplets.cbegin(), assembly.stiffness_triplets.cend());
+            {
+                // Currently we needlessly construct the mass matrix here too. For now we put this in a block scope
+                // so that it will be deallocated shortly thereafter, but in the long-term this should
+                // be remedied so that we don't redundantly compute it. TODO
+                const auto assembly = LagrangeBasis2d<Scalar>(fine).assemble();
+                A = std::move(assembly.stiffness);
+            }
 
             std::vector<Eigen::Triplet<Scalar>> basis_triplets;
             for (int t = 0; t < coarse.num_elements(); ++t)
             {
-                for (size_t i = 0; i < 3; ++i)
-                {
-                    const auto corrector_contributions = compute_element_corrector_for_node(coarse,
-                                                                                            fine,
-                                                                                            A,
-                                                                                            I_H,
-                                                                                            t,
-                                                                                            i,
-                                                                                            oversampling);
-                    std::copy(corrector_contributions.cbegin(),
-                              corrector_contributions.cend(),
-                              std::back_inserter(basis_triplets));
-                }
+                const auto corrector_contributions = compute_element_correctors_for_patch(
+                        coarse, fine, A, I_H, t, oversampling);
+                std::copy(corrector_contributions.cbegin(),
+                          corrector_contributions.cend(),
+                          std::back_inserter(basis_triplets));
             }
 
             Eigen::SparseMatrix<Scalar> basis(coarse.num_vertices(), fine.num_vertices());

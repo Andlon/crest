@@ -88,24 +88,13 @@ TEST(construct_saddle_point_problem_test, blockwise_correct)
     I_H(1, 1) = 7.0;
     I_H(2, 2) = 8.0;
 
-    VectorX<double> b(5);
-    b.setZero();
-    b(0) = 1.0;
-    b(1) = 2.0;
-    b(2) = 3.0;
-    b(3) = 4.0;
-    b(4) = 5.0;
-
     const Eigen::SparseMatrix<double> A_sparse = A.sparseView();
     const Eigen::SparseMatrix<double> I_H_sparse = I_H.sparseView();
 
-    const auto saddle_point = crest::detail::construct_saddle_point_problem(A_sparse, I_H_sparse, b);
-    const MatrixX<double> C = saddle_point.first;
-    const VectorX<double> c = saddle_point.second;
+    const MatrixX<double> C = crest::detail::construct_saddle_point_problem(A_sparse, I_H_sparse);
 
     ASSERT_THAT(C.rows(), 8);
     ASSERT_THAT(C.cols(), 8);
-    ASSERT_THAT(c.rows(), 8);
 
     const MatrixX<double> bottomRightCorner = C.bottomRightCorner(3, 3);
     const auto bottomRightCornerElements = std::vector<double>(bottomRightCorner.data(), bottomRightCorner.data() + 9);
@@ -115,11 +104,6 @@ TEST(construct_saddle_point_problem_test, blockwise_correct)
     EXPECT_THAT(C.bottomLeftCorner(3, 5), MatrixEq(I_H));
     EXPECT_THAT(C.topRightCorner(5, 3), MatrixEq(I_H.transpose()));
     EXPECT_THAT(bottomRightCornerElements, Each(DoubleEq(0.0)));
-
-    EXPECT_THAT(c.topRows(5), MatrixEq(b));
-    EXPECT_THAT(c.bottomRows(3)(0), DoubleEq(0.0));
-    EXPECT_THAT(c.bottomRows(3)(1), DoubleEq(0.0));
-    EXPECT_THAT(c.bottomRows(3)(2), DoubleEq(0.0));
 }
 
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
