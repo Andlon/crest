@@ -51,11 +51,12 @@ struct OnlineParameters
 {
     double end_time;
     uint64_t sample_count;
+    int load_quadrature_strength;
 
     std::string integrator_name;
 
     OnlineParameters()
-            : end_time(0.0), sample_count(0)
+            : end_time(0.0), sample_count(0), load_quadrature_strength(4)
     {}
 
     OnlineParameters & with_end_time(double end_time)

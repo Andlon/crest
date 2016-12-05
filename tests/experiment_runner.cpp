@@ -53,7 +53,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                 { "parameters", {
                                         { "end_time", result.online_parameters->end_time },
                                         { "sample_count", result.online_parameters->sample_count },
-                                        { "integrator", result.online_parameters->integrator_name }
+                                        { "integrator", result.online_parameters->integrator_name },
+                                        { "load_quadrature_strength", result.online_parameters->load_quadrature_strength }
                                 }},
                 { "result", {
                                         { "error_summary", {
@@ -164,6 +165,11 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
     parameters.integrator_name = extract_mandatory_field(online_json, "integrator");
     parameters.end_time = extract_mandatory_field(online_json, "end_time");
     parameters.sample_count = extract_mandatory_field(online_json, "sample_count");
+
+    if (const auto load_strength = extract_optional_field(online_json, "load_quadrature_strength")) {
+        parameters.load_quadrature_strength = *load_strength;
+    }
+
     return parameters;
 }
 
