@@ -150,13 +150,22 @@ struct OfflineResult
     }
 };
 
+typedef crest::wave::SolveTiming OnlineTiming;
+
 struct OnlineResult
 {
     ErrorSummary error_summary;
+    OnlineTiming timing;
 
     OnlineResult & with_error_summary(ErrorSummary summary)
     {
         this->error_summary = summary;
+        return *this;
+    }
+
+    OnlineResult & with_timing(OnlineTiming timing)
+    {
+        this->timing = timing;
         return *this;
     }
 };
@@ -296,7 +305,9 @@ protected:
                 break;
         }
 
-        return OnlineResult().with_error_summary(errors);
+        return OnlineResult()
+                .with_error_summary(errors)
+                .with_timing(result.timing);
     };
 };
 

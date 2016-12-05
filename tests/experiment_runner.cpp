@@ -47,19 +47,29 @@ auto experiment_result_as_json(const ExperimentResult & result)
 
     if (result.online_parameters && result.online_result)
     {
+        const auto errors = result.online_result->error_summary;
+        const auto timing = result.online_result->timing;
         output["online"] = {
                 { "parameters", {
-                        { "end_time", result.online_parameters->end_time },
-                        { "sample_count", result.online_parameters->sample_count },
-                        { "integrator", result.online_parameters->integrator_name }
-                }},
+                                        { "end_time", result.online_parameters->end_time },
+                                        { "sample_count", result.online_parameters->sample_count },
+                                        { "integrator", result.online_parameters->integrator_name }
+                                }},
                 { "result", {
-                        { "error_summary", {
-                                { "h1", result.online_result->error_summary.h1 },
-                                { "h1_semi", result.online_result->error_summary.h1_semi },
-                                { "l2", result.online_result->error_summary.l2 }
-                        }}
-                }}
+                                        { "error_summary", {
+                                                              { "h1", errors.h1 },
+                                                              { "h1_semi", errors.h1_semi },
+                                                              { "l2", errors.l2 }
+                                                      }},
+                                        { "timing", {
+                                                                  { "load_time", timing.load_time },
+                                                                  { "initializer_time", timing.initializer_time },
+                                                                  { "integrator_setup_time", timing.integrator_setup_time },
+                                                                  { "integrator_solve_time", timing.integrator_solve_time },
+                                                                  { "transform_time", timing.transform_time },
+                                                                  { "total_time", timing.total_time }
+                                                          }}
+                                }}
 
         };
     } else if (result.online_parameters || result.online_result)
