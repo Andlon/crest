@@ -9,9 +9,11 @@ addons:
       - g++-5
       - cmake-data
       - cmake
+      - libboost1.55-dev
     sources:
       - george-edison55-precise-backports
       - ubuntu-toolchain-r-test
+      - boost-latest
 
 env:
   # Ideally we'd also run with CMAKE_BUILD_TYPE=Debug,

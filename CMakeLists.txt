@@ -49,7 +49,7 @@ add_subdirectory("external/rapidcheck")
 find_package(HDF5 COMPONENTS CXX)
 
 # Boost
-find_package(Boost 1.58 REQUIRED)
+find_package(Boost 1.54 REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
 # Unit tests
