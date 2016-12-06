@@ -46,10 +46,10 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     const auto initial_mesh = IndexedMesh<double, int>(coarse_vertices, coarse_elements);
 
     const auto mesh = crest::threshold(initial_mesh, 0.5, { crest::ReentrantCorner<double, int>(0, 2.35)});
-    const auto basis = crest::detail::homogenized_basis_correctors(mesh, 4);
+    const auto correctors = crest::SparseLuCorrectorSolver<double>().compute_correctors(mesh, 4);
 
-    ASSERT_THAT(basis.rows(), Eq(mesh.coarse_mesh().num_vertices()));
-    ASSERT_THAT(basis.cols(), Eq(mesh.fine_mesh().num_vertices()));
+    ASSERT_THAT(correctors.rows(), Eq(mesh.coarse_mesh().num_vertices()));
+    ASSERT_THAT(correctors.cols(), Eq(mesh.fine_mesh().num_vertices()));
 
     const auto coarse_interior = mesh.coarse_mesh().compute_interior_vertices();
     const auto fine_dof = crest::algo::integer_range<int>(0, mesh.fine_mesh().num_vertices());
@@ -62,7 +62,7 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     // Recall that each row of 'basis' corresponds to weights in the fine space, so by transposing it and
     // left-multiplying by I_H, we effectively compute I_H x_i for each basis function i.
     // Since x_i is in the kernel of I_H, we expect the result to be zero.
-    const Eigen::SparseMatrix<double> Z = I_H_interior * basis.transpose();
+    const Eigen::SparseMatrix<double> Z = I_H_interior * correctors.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
     EXPECT_TRUE(Z_dense.isZero(1e-15));
@@ -116,10 +116,10 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
 
     const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
 
-    const auto basis = crest::detail::homogenized_basis_correctors(biscale, oversampling);
+    const auto correctors = crest::SparseLuCorrectorSolver<double>().compute_correctors(biscale, oversampling);
 
-    ASSERT_THAT(basis.rows(), Eq(coarse_mesh.num_vertices()));
-    ASSERT_THAT(basis.cols(), Eq(fine_mesh.num_vertices()));
+    ASSERT_THAT(correctors.rows(), Eq(coarse_mesh.num_vertices()));
+    ASSERT_THAT(correctors.cols(), Eq(fine_mesh.num_vertices()));
 
     const auto coarse_interior = coarse_mesh.compute_interior_vertices();
     const auto fine_dof = crest::algo::integer_range<int>(0, fine_mesh.num_vertices());
@@ -133,7 +133,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
     // Recall that each row of 'basis' corresponds to weights in the fine space, so by transposing it and
     // left-multiplying by I_H, we effectively compute I_H x_i for each basis function i.
     // Since x_i is in the kernel of I_H, we expect the result to be zero.
-    const Eigen::SparseMatrix<double> Z = I_H_interior * basis.transpose();
+    const Eigen::SparseMatrix<double> Z = I_H_interior * correctors.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
     RC_ASSERT(Z_dense.isZero(1e-14));
@@ -144,15 +144,14 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
     const auto oversampling = static_cast<unsigned int>(*rc::gen::inRange(0, 6));
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
     const auto biscale = crest::BiscaleMesh<double, int>(mesh, mesh);
-    const auto basis = crest::detail::homogenized_basis_correctors(biscale, oversampling);
-
-    ASSERT_THAT(basis.rows(), Eq(mesh.num_vertices()));
-    ASSERT_THAT(basis.cols(), Eq(mesh.num_vertices()));
+    const auto correctors = crest::SparseLuCorrectorSolver<double>().compute_correctors(biscale, oversampling);
+    ASSERT_THAT(correctors.rows(), Eq(mesh.num_vertices()));
+    ASSERT_THAT(correctors.cols(), Eq(mesh.num_vertices()));
 
     double max_abs = 0.0;
-    for (int o = 0; o < basis.outerSize(); ++o)
+    for (int o = 0; o < correctors.outerSize(); ++o)
     {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(basis, o); it; ++it)
+        for (Eigen::SparseMatrix<double>::InnerIterator it(correctors, o); it; ++it)
         {
             max_abs = std::max(max_abs, std::abs(it.value()));
         }
@@ -194,7 +193,8 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
     const auto fine_basis = LagrangeBasis2d<double>(fine);
 
     const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
-    const auto basis_weights = crest::detail::corrected_basis_coefficients(biscale, oversampling);
+    const auto basis_weights = crest::SparseLuCorrectorSolver<double>()
+            .compute_basis(biscale, oversampling).basis_weights();
     const auto basis_interior_weights = sparse_submatrix(basis_weights, coarse_interior, fine_interior);
 
     // Construct a basis for W_H, the kernel of I_H.

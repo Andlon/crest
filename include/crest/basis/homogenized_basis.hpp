@@ -5,6 +5,7 @@
 #include <crest/geometry/biscale_mesh.hpp>
 #include <crest/basis/quasi_interpolation.hpp>
 #include <crest/basis/lagrange_basis2d.hpp>
+#include <crest/basis/detail/homogenized_basis_detail.hpp>
 #include <crest/util/eigen_extensions.hpp>
 
 #include <Eigen/Sparse>
@@ -15,330 +16,12 @@
 
 namespace crest
 {
-    namespace detail
-    {
-        template <typename Scalar>
-        VectorX<Scalar> local_rhs(const BiscaleMesh<Scalar, int> & mesh,
-                                  const std::vector<int> & fine_patch_interior,
-                                  int coarse_element,
-                                  int local_index)
-        {
-            assert(local_index >= 0 && local_index < 3);
-            // TODO: Simplify this function
-            assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
-
-            const auto coarse_triangle = mesh.coarse_mesh().triangle_for(coarse_element);
-            const Eigen::Matrix<Scalar, 3, 3> coarse_coeff = basis_coefficients_for_triangle(coarse_triangle);
-
-            const auto coarse_grad_x = coarse_coeff(0, local_index);
-            const auto coarse_grad_y = coarse_coeff(1, local_index);
-
-            VectorX<Scalar> rhs(fine_patch_interior.size());
-            rhs.setZero();
-            for (auto k : mesh.descendants_for(coarse_element))
-            {
-                const auto vertex_indices = mesh.fine_mesh().elements()[k].vertex_indices;
-                const auto fine_triangle = mesh.fine_mesh().triangle_for(k);
-                const Eigen::Matrix<Scalar, 3, 3> fine_coeff = basis_coefficients_for_triangle(fine_triangle);
-
-                for (size_t j = 0; j < 3; ++j)
-                {
-                    const auto fine_grad_x = fine_coeff(0, j);
-                    const auto fine_grad_y = fine_coeff(1, j);
-
-                    // TODO: Fix this
-                    const auto product = [&] (auto  , auto  )
-                    {
-                        return coarse_grad_x * fine_grad_x + coarse_grad_y * fine_grad_y;
-                    };
-
-                    // At this point, we only know the index of the vertex in the global mesh,
-                    // but we need the index of the vertex with respect to the patch interior. For now,
-                    // we just perform a binary search to recover it, though there may be much more efficient ways.
-                    // For example, we can construct a hashmap in the beginning of this function (which may
-                    // or may not be more efficient).
-                    const auto vertex_index = vertex_indices[j];
-                    const auto range = std::equal_range(fine_patch_interior.cbegin(),
-                                                        fine_patch_interior.cend(),
-                                                        vertex_index);
-
-                    if (range.first != range.second)
-                    {
-                        const auto inner_product = triquad<2>(product,
-                                                              fine_triangle.a,
-                                                              fine_triangle.b,
-                                                              fine_triangle.c);
-
-                        const auto local_index = range.first - fine_patch_interior.cbegin();
-                        rhs(local_index) += inner_product;
-                    }
-
-                }
-            }
-            return rhs;
-        }
-
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> construct_saddle_point_problem(
-                const Eigen::SparseMatrix<Scalar> & A,
-                const Eigen::SparseMatrix<Scalar> & I_H)
-        {
-            // Define the matrix
-            //
-            // C = [ A      I_H^T ]
-            //     [ I_H      0   ]
-            //
-            // and the right-hand side
-            //
-            // c = [ b ]
-            //     [ 0 ]
-            //
-            // Solving the system C [ x, kappa ] = c then gives the corrector weights x.
-            // kappa merely corresponds to a Lagrange multiplier and can be discarded.
-
-            // Constructing the C matrix with triplets is not the most efficient way, but it is
-            // fairly simple and probably still relatively efficient.
-            std::vector<Eigen::Triplet<Scalar>> triplets;
-            for (int i = 0; i < A.outerSize(); ++i)
-            {
-                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(A, i); it; ++it)
-                {
-                    triplets.push_back(Eigen::Triplet<Scalar>(it.row(), it.col(), it.value()));
-                }
-            }
-
-            for (int i = 0; i < I_H.outerSize(); ++i)
-            {
-                for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(I_H, i); it; ++it)
-                {
-                    const auto row = it.row() + A.rows();
-                    const auto col = it.col();
-                    triplets.push_back(Eigen::Triplet<Scalar>(row, col, it.value()));
-                    // Also add the transposed element, to bring I_H^T to the top-right corner
-                    triplets.push_back(Eigen::Triplet<Scalar>(col, row, it.value()));
-                }
-            }
-
-            Eigen::SparseMatrix<Scalar> C(A.rows() + I_H.rows(), A.cols() + I_H.rows());
-            C.setFromTriplets(triplets.cbegin(), triplets.cend());
-
-            return C;
-        };
-
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar>
-        localized_quasi_interpolator(const Eigen::SparseMatrix<Scalar> & global_interpolator,
-                                     const typename BiscaleMesh<Scalar, int>::CoarsePatch & coarse_patch,
-                                     const std::vector<int> & fine_patch_interior)
-        {
-            assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
-
-            const auto coarse_patch_interior = coarse_patch.interior();
-
-            if (coarse_patch_interior.empty())
-            {
-                return Eigen::SparseMatrix<Scalar>(0, 0);
-            }
-            else
-            {
-                // Here we impose only Dirichlet boundary conditions on the boundary of the patch,
-                // ignoring the constraints imposed by the quasi-interpolator on the boundary.
-                // This isn't theoretically justified, but it's a small perturbation that
-                // seems to work well in practice, and it gives us a localized quasi-interpolator
-                // which has full row rank almost for free.
-                const auto I_H_local = sparse_submatrix(global_interpolator,
-                                                        coarse_patch_interior,
-                                                        fine_patch_interior);
-
-                return I_H_local;
-            }
-        }
-
-        template <typename Scalar>
-        std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
-                const BiscaleMesh<Scalar, int> & mesh,
-                const Eigen::SparseMatrix<Scalar> & fine_stiffness_matrix,
-                const Eigen::SparseMatrix<Scalar> & quasi_interpolator,
-                int coarse_element,
-                unsigned int oversampling)
-        {
-            assert(coarse_element >= 0 && coarse_element < mesh.coarse_mesh().num_elements());
-
-            std::vector<Eigen::Triplet<Scalar>> triplets;
-
-            const auto coarse_patch = mesh.coarse_element_patch(coarse_element, oversampling);
-            const auto fine_patch = mesh.fine_patch_from_coarse(coarse_patch);
-            const auto fine_patch_interior = fine_patch.interior();
-
-            if (!fine_patch_interior.empty())
-            {
-                const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
-                                                                    coarse_patch,
-                                                                    fine_patch_interior);
-                const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);
-
-                const auto C = construct_saddle_point_problem(A_local, I_H_local);
-
-                Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
-                solver.analyzePattern(C);
-                solver.factorize(C);
-                assert(solver.info() == Eigen::Success);
-
-                for (int i = 0; i < 3; ++i)
-                {
-                    const auto b_local = local_rhs(mesh, fine_patch_interior, coarse_element, i);
-
-                    VectorX<Scalar> c(C.rows());
-                    c << b_local, VectorX<Scalar>::Zero(I_H_local.rows());
-
-                    // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
-                    // we extract x as the corrector.
-                    const VectorX<Scalar> corrector = solver.solve(c).topRows(A_local.rows());
-
-                    assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
-                    const auto global_index = mesh.coarse_mesh().elements()[coarse_element].vertex_indices[i];
-                    for (size_t k = 0; k < fine_patch_interior.size(); ++k)
-                    {
-                        const auto component = corrector(k);
-                        // Due to rounding issues, some components that should perhaps be zero in exact arithmetic
-                        // may be non-zero, and as such we might end up with a denser matrix than we should actually
-                        // have. To prevent this, we introduce a threshold which determines whether to keep the entry.
-                        // TODO: Make this threshold configurable?
-                        if (std::abs(component) > 1e-12)
-                        {
-                            triplets.emplace_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], component));
-                        }
-                    }
-                }
-
-            }
-
-            return triplets;
-        }
-
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> homogenized_basis_correctors(
-                const BiscaleMesh<Scalar, int> & mesh,
-                unsigned int oversampling)
-        {
-            const auto I_H = quasi_interpolator(mesh);
-
-            Eigen::SparseMatrix<Scalar> A(mesh.fine_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
-            {
-                // Currently we needlessly construct the mass matrix here too. For now we put this in a block scope
-                // so that it will be deallocated shortly thereafter, but in the long-term this should
-                // be remedied so that we don't redundantly compute it. TODO
-                const auto assembly = LagrangeBasis2d<Scalar>(mesh.fine_mesh()).assemble();
-                A = std::move(assembly.stiffness);
-            }
-
-            std::vector<Eigen::Triplet<Scalar>> basis_triplets;
-            for (int t = 0; t < mesh.coarse_mesh().num_elements(); ++t)
-            {
-                const auto corrector_contributions = compute_element_correctors_for_patch(
-                        mesh, A, I_H, t, oversampling);
-                std::copy(corrector_contributions.cbegin(),
-                          corrector_contributions.cend(),
-                          std::back_inserter(basis_triplets));
-            }
-
-            Eigen::SparseMatrix<Scalar> basis(mesh.coarse_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
-            basis.setFromTriplets(basis_triplets.cbegin(), basis_triplets.cend());
-            return basis;
-        }
-
-        /**
-         * Computes the weights of the standard coarse Lagrangian basis functions in the fine space
-         * @param coarse
-         * @param fine
-         * @return
-         */
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> standard_coarse_basis_in_fine_space(const BiscaleMesh<Scalar, int> & mesh)
-        {
-            // A complicating matter here is that a vertex in the fine mesh can reside in multiple
-            // coarse elements, and so it's easy to count them twice.
-
-            // The approach demonstrated here is horribly inefficient and inelegant.
-            // It is meant as a simple stop-gap solution.
-            // TODO: Improve this
-
-            std::set<std::pair<int, int>> visited;
-            std::vector<Eigen::Triplet<Scalar>> triplets;
-
-            for (int coarse_index = 0; coarse_index < mesh.coarse_mesh().num_elements(); ++coarse_index)
-            {
-                const auto coarse_element = mesh.coarse_mesh().elements()[coarse_index];
-                const auto triangle = mesh.coarse_mesh().triangle_for(coarse_index);
-                const auto coeff = detail::basis_coefficients_for_triangle(triangle);
-
-                for (const auto fine_index : mesh.descendants_for(coarse_index))
-                    for (int i = 0; i < 3; ++i)
-                    {
-                        const auto fine_element = mesh.fine_mesh().elements()[fine_index];
-                        const auto v_index = fine_element.vertex_indices[i];
-                        const auto v = mesh.fine_mesh().vertices()[v_index];
-
-                        for (int j = 0; j < 3; ++j)
-                        {
-                            const auto coarse_index = coarse_element.vertex_indices[j];
-                            const auto key = std::make_pair(coarse_index, v_index);
-                            if (visited.count(key) == 0)
-                            {
-                                const auto a = coeff(0, j);
-                                const auto b = coeff(1, j);
-                                const auto c = coeff(2, j);
-
-                                const auto v_value = a * v.x + b * v.y + c;
-
-                                triplets.push_back(Eigen::Triplet<Scalar>(coarse_index, v_index, v_value));
-                                visited.insert(key);
-                            }
-                        }
-                    }
-            }
-
-            Eigen::SparseMatrix<Scalar> basis(mesh.coarse_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
-            basis.setFromTriplets(triplets.begin(), triplets.end());
-            return basis;
-        }
-
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar> corrected_basis_coefficients(const BiscaleMesh<Scalar, int> & mesh,
-                                                                 unsigned int oversampling)
-        {
-            const auto corrector_weights = homogenized_basis_correctors(mesh, oversampling);
-            const auto lagrange_basis_weights = standard_coarse_basis_in_fine_space(mesh);
-            return lagrange_basis_weights - corrector_weights;
-        }
-    }
-
     template <typename Scalar>
     class HomogenizedBasis : public Basis<Scalar, HomogenizedBasis<Scalar>>
     {
     public:
         explicit HomogenizedBasis(const BiscaleMesh<Scalar, int> & mesh,
-                                  unsigned int oversampling)
-                : _mesh(mesh)
-        {
-            // TODO: Probably want to change the design of Basis to accommodate the fact that HomogenizedBasis
-            // needs to do a lot of computation at construction in order to compute load vectors etc.
-            _basis_weights = detail::corrected_basis_coefficients(_mesh, oversampling);
-        }
-
-        explicit HomogenizedBasis(const BiscaleMesh<Scalar, int> & mesh,
-                                  Eigen::SparseMatrix<double> weights)
-                : _mesh(mesh)
-        {
-            if (weights.rows() == mesh.coarse_mesh().num_vertices() && weights.cols() == mesh.fine_mesh().num_vertices())
-            {
-                _basis_weights = std::move(weights);
-            } else
-            {
-                throw std::invalid_argument("Dimensions of basis weights are not compatible with "
-                                                    "supplied coarse and fine meshes.");
-            }
-        }
+                                  Eigen::SparseMatrix<double> weights);
 
         virtual std::vector<int> boundary_nodes() const override { return _mesh.coarse_mesh().boundary_vertices(); }
 
@@ -368,6 +51,220 @@ namespace crest
         Eigen::SparseMatrix<Scalar> _basis_weights;
         const BiscaleMesh<Scalar, int> & _mesh;
     };
+
+    /**
+     * Base class for solvers that compute localized correctors for a given BiscaleMesh.
+     */
+    template <typename Scalar>
+    class CorrectorSolver
+    {
+    public:
+        virtual ~CorrectorSolver() {}
+
+        crest::HomogenizedBasis<Scalar> compute_basis(const BiscaleMesh<Scalar, int> & mesh,
+                                                      unsigned int oversampling) const;
+
+        Eigen::SparseMatrix<Scalar> compute_correctors(const BiscaleMesh<Scalar, int> & mesh,
+                                                       unsigned int oversampling) const;
+
+    protected:
+        virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
+                const BiscaleMesh<Scalar, int> & mesh,
+                const std::vector<int> & fine_patch_interior,
+                const Eigen::SparseMatrix<Scalar> & local_stiffness,
+                const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
+                int coarse_element) const = 0;
+
+        VectorX<Scalar> local_rhs(const BiscaleMesh<Scalar, int> & mesh,
+                                  const std::vector<int> & fine_patch_interior,
+                                  int coarse_element,
+                                  int local_index) const;
+    };
+
+    /**
+     * The default corrector solver, which uses SparseLU to compute correctors. It is slow, but very robust.
+     */
+    template <typename Scalar>
+    class SparseLuCorrectorSolver : public CorrectorSolver<Scalar>
+    {
+    protected:
+        virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
+                const BiscaleMesh<Scalar, int> & mesh,
+                const std::vector<int> & fine_patch_interior,
+                const Eigen::SparseMatrix<Scalar> & local_stiffness,
+                const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
+                int coarse_element) const override
+        {
+            std::vector<Eigen::Triplet<Scalar>> triplets;
+            const auto & I_H = local_quasi_interpolator;
+            const auto & A = local_stiffness;
+            const auto C = detail::construct_saddle_point_problem(A, I_H);
+
+            Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
+            solver.analyzePattern(C);
+            solver.factorize(C);
+            assert(solver.info() == Eigen::Success);
+
+            for (int i = 0; i < 3; ++i)
+            {
+                const auto b_local = this->local_rhs(mesh, fine_patch_interior, coarse_element, i);
+
+                VectorX<Scalar> c(C.rows());
+                c << b_local, VectorX<Scalar>::Zero(I_H.rows());
+
+                // Recall that the solution is of the form [x, kappa], where kappa is merely a Lagrange multiplier, so
+                // we extract x as the corrector.
+                const VectorX<Scalar> corrector = solver.solve(c).topRows(A.rows());
+
+                assert(static_cast<size_t>(corrector.rows()) == fine_patch_interior.size());
+                const auto global_index = mesh.coarse_mesh().elements()[coarse_element].vertex_indices[i];
+                for (size_t k = 0; k < fine_patch_interior.size(); ++k)
+                {
+                    const auto component = corrector(k);
+                    // Due to rounding issues, some components that should perhaps be zero in exact arithmetic
+                    // may be non-zero, and as such we might end up with a denser matrix than we should actually
+                    // have. To prevent this, we introduce a threshold which determines whether to keep the entry.
+                    // TODO: Make this threshold configurable?
+                    if (std::abs(component) > 1e-12)
+                    {
+                        triplets.emplace_back(Eigen::Triplet<Scalar>(global_index, fine_patch_interior[k], component));
+                    }
+                }
+            }
+
+            return triplets;
+        }
+    };
+
+    template <typename Scalar>
+    VectorX<Scalar> CorrectorSolver<Scalar>::local_rhs(const BiscaleMesh<Scalar, int> & mesh,
+                                                       const std::vector<int> & fine_patch_interior,
+                                                       int coarse_element,
+                                                       int local_index) const
+    {
+        assert(local_index >= 0 && local_index < 3);
+        // TODO: Simplify this function
+        assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
+
+        const auto coarse_triangle = mesh.coarse_mesh().triangle_for(coarse_element);
+        const Eigen::Matrix<Scalar, 3, 3> coarse_coeff = detail::basis_coefficients_for_triangle(coarse_triangle);
+
+        const auto coarse_grad_x = coarse_coeff(0, local_index);
+        const auto coarse_grad_y = coarse_coeff(1, local_index);
+
+        VectorX<Scalar> rhs(fine_patch_interior.size());
+        rhs.setZero();
+        for (auto k : mesh.descendants_for(coarse_element))
+        {
+            const auto vertex_indices = mesh.fine_mesh().elements()[k].vertex_indices;
+            const auto fine_triangle = mesh.fine_mesh().triangle_for(k);
+            const Eigen::Matrix<Scalar, 3, 3> fine_coeff = detail::basis_coefficients_for_triangle(fine_triangle);
+
+            for (size_t j = 0; j < 3; ++j)
+            {
+                const auto fine_grad_x = fine_coeff(0, j);
+                const auto fine_grad_y = fine_coeff(1, j);
+
+                // TODO: Fix this
+                const auto product = [&] (auto  , auto  )
+                {
+                    return coarse_grad_x * fine_grad_x + coarse_grad_y * fine_grad_y;
+                };
+
+                // At this point, we only know the index of the vertex in the global mesh,
+                // but we need the index of the vertex with respect to the patch interior. For now,
+                // we just perform a binary search to recover it, though there may be much more efficient ways.
+                // For example, we can construct a hashmap in the beginning of this function (which may
+                // or may not be more efficient).
+                const auto vertex_index = vertex_indices[j];
+                const auto range = std::equal_range(fine_patch_interior.cbegin(),
+                                                    fine_patch_interior.cend(),
+                                                    vertex_index);
+
+                if (range.first != range.second)
+                {
+                    const auto inner_product = triquad<2>(product,
+                                                          fine_triangle.a,
+                                                          fine_triangle.b,
+                                                          fine_triangle.c);
+
+                    const auto local_index = range.first - fine_patch_interior.cbegin();
+                    rhs(local_index) += inner_product;
+                }
+
+            }
+        }
+        return rhs;
+    }
+
+    template <typename Scalar>
+    Eigen::SparseMatrix<Scalar> CorrectorSolver<Scalar>::compute_correctors(
+            const BiscaleMesh<Scalar, int> & mesh,
+            unsigned int oversampling) const
+    {
+        const auto I_H = quasi_interpolator(mesh);
+
+        Eigen::SparseMatrix<Scalar> A(mesh.fine_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
+        {
+            // Currently we needlessly construct the mass matrix here too. For now we put this in a block scope
+            // so that it will be deallocated shortly thereafter, but in the long-term this should
+            // be remedied so that we don't redundantly compute it. TODO
+            const auto assembly = LagrangeBasis2d<Scalar>(mesh.fine_mesh()).assemble();
+            A = std::move(assembly.stiffness);
+        }
+
+        std::vector<Eigen::Triplet<Scalar>> basis_triplets;
+        for (int coarse_element = 0; coarse_element < mesh.coarse_mesh().num_elements(); ++coarse_element)
+        {
+            const auto coarse_patch = mesh.coarse_element_patch(coarse_element, oversampling);
+            const auto fine_patch = mesh.fine_patch_from_coarse(coarse_patch);
+            const auto fine_patch_interior = fine_patch.interior();
+
+            if (!fine_patch_interior.empty())
+            {
+                const auto I_H_local = detail::localized_quasi_interpolator(I_H,
+                                                                            coarse_patch,
+                                                                            fine_patch_interior);
+                const auto A_local = sparse_submatrix(A, fine_patch_interior, fine_patch_interior);
+
+                const auto corrector_contributions = compute_element_correctors_for_patch(
+                        mesh, fine_patch.interior(), A_local, I_H_local, coarse_element);
+                std::copy(corrector_contributions.cbegin(),
+                          corrector_contributions.cend(),
+                          std::back_inserter(basis_triplets));
+            }
+        }
+
+        Eigen::SparseMatrix<Scalar> basis(mesh.coarse_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
+        basis.setFromTriplets(basis_triplets.cbegin(), basis_triplets.cend());
+        return basis;
+    }
+
+    template <typename Scalar>
+    HomogenizedBasis<Scalar> CorrectorSolver<Scalar>::compute_basis(const BiscaleMesh<Scalar, int> & mesh,
+                                                                    unsigned int oversampling) const
+    {
+        const auto corrector_weights = compute_correctors(mesh, oversampling);
+        const auto lagrange_basis_weights = detail::standard_coarse_basis_in_fine_space(mesh);
+        const auto basis_weights = lagrange_basis_weights - corrector_weights;
+        return HomogenizedBasis<Scalar>(mesh, basis_weights);
+    }
+
+    template <typename Scalar>
+    HomogenizedBasis<Scalar>::HomogenizedBasis(const BiscaleMesh<Scalar, int> & mesh,
+                                               Eigen::SparseMatrix<double> weights)
+            : _mesh(mesh)
+    {
+        if (weights.rows() == mesh.coarse_mesh().num_vertices() && weights.cols() == mesh.fine_mesh().num_vertices())
+        {
+            _basis_weights = std::move(weights);
+        } else
+        {
+            throw std::invalid_argument("Dimensions of basis weights are not compatible with "
+                                                "supplied coarse and fine meshes.");
+        }
+    }
+
 
     template <typename Scalar>
     Assembly<Scalar> HomogenizedBasis<Scalar>::assemble() const

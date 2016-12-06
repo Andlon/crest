@@ -31,12 +31,14 @@ private:
 
 RC_GTEST_PROP(basis_io, export_import_roundtrip, ())
 {
+    using crest::SparseLuCorrectorSolver;
+
     const auto coarse = *crest::gen::arbitrary_unit_square_mesh();
     const auto fine = *crest::gen::arbitrary_refinement(coarse, 0).as("fine mesh");
     const auto biscale = crest::BiscaleMesh<double, int>(coarse, fine);
 
     const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
-    const auto basis = crest::HomogenizedBasis<double>(biscale, oversampling);
+    const auto basis = crest::SparseLuCorrectorSolver<double>().compute_basis(biscale, oversampling);
 
     const auto file_path = TemporaryFilePath();
 

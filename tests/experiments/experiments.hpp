@@ -383,6 +383,8 @@ private:
 protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
+        using crest::SparseLuCorrectorSolver;
+
         OfflineTiming timing;
         crest::Timer timer;
         const auto h = parameters.mesh_resolution;
@@ -398,11 +400,10 @@ protected:
 
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
-                ? std::make_unique<const Basis>(*mesh,
-                                                oversampling)
+                ? std::make_unique<const Basis>(
+                        std::move(SparseLuCorrectorSolver<double>().compute_basis(*mesh, oversampling)))
                 : std::make_unique<const Basis>(
-                        std::move(crest::import_basis(*mesh,
-                                                      parameters.basis_import_file)));
+                        std::move(crest::import_basis(*mesh, parameters.basis_import_file)));
 
         timing.basis_construction = timer.measure_and_reset();
 
