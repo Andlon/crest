@@ -16,9 +16,9 @@ namespace crest
 {
     namespace detail
     {
-        template <typename Scalar, typename Index>
-        std::vector<Index> fine_patch_from_coarse(const IndexedMesh<Scalar, Index> & fine,
-                                                  const std::vector<Index> & coarse_patch)
+        template <typename Scalar, typename Index, typename Tag>
+        Patch<Scalar, Index, Tag> fine_patch_from_coarse(const IndexedMesh<Scalar, Index> & fine,
+                                                         const Patch<Scalar, Index, Tag> & coarse_patch)
         {
             std::vector<Index> fine_patch;
             for (const auto t : coarse_patch)
@@ -34,19 +34,18 @@ namespace crest
             }
             std::sort(fine_patch.begin(), fine_patch.end());
             fine_patch.erase(std::unique(fine_patch.begin(), fine_patch.end()), fine_patch.end());
-            return fine_patch;
+            return make_patch<Scalar, Index, Tag>(fine, std::move(fine_patch));
         }
 
-        template <typename Scalar>
+        template <typename Scalar, typename Tag>
         VectorX<Scalar> local_rhs(const IndexedMesh<Scalar, int> & coarse,
                                   const IndexedMesh<Scalar, int> & fine,
                                   int coarse_element,
                                   int local_index,
-                                  const std::vector<int> & fine_patch,
+                                  const Patch<Scalar, int, Tag> & fine_patch,
                                   const std::vector<int> & fine_patch_interior)
         {
             // TODO: Simplify this function
-            assert(std::is_sorted(fine_patch.cbegin(), fine_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
 
             const auto coarse_triangle = coarse.triangle_for(coarse_element);
@@ -151,17 +150,15 @@ namespace crest
             return C;
         };
 
-        template <typename Scalar>
+        template <typename Scalar, typename Tag>
         Eigen::SparseMatrix<Scalar>
         localized_quasi_interpolator(const Eigen::SparseMatrix<Scalar> & global_interpolator,
-                                     const IndexedMesh<Scalar, int> & coarse_mesh,
-                                     const std::vector<int> & coarse_patch,
+                                     const Patch<Scalar, int, Tag> & coarse_patch,
                                      const std::vector<int> & fine_patch_interior)
         {
-            assert(std::is_sorted(coarse_patch.cbegin(), coarse_patch.cend()));
             assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
 
-            const auto coarse_patch_interior = patch_interior(coarse_mesh, coarse_patch);
+            const auto coarse_patch_interior = coarse_patch.interior();
 
             if (coarse_patch_interior.empty())
             {
@@ -197,12 +194,11 @@ namespace crest
 
             const auto coarse_patch = patch_for_element(coarse, coarse_element, oversampling);
             const auto fine_patch = fine_patch_from_coarse(fine, coarse_patch);
-            const auto fine_patch_interior = patch_interior(fine, fine_patch);
+            const auto fine_patch_interior = fine_patch.interior();
 
             if (!fine_patch_interior.empty())
             {
                 const auto I_H_local = localized_quasi_interpolator(quasi_interpolator,
-                                                                    coarse,
                                                                     coarse_patch,
                                                                     fine_patch_interior);
                 const auto A_local = sparse_submatrix(fine_stiffness_matrix, fine_patch_interior, fine_patch_interior);

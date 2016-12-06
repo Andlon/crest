@@ -1,5 +1,9 @@
 #pragma once
 
+#include <crest/geometry/indexed_mesh.hpp>
+#include <crest/geometry/patch.hpp>
+#include <crest/util/algorithms.hpp>
+
 #include <vector>
 #include <unordered_map>
 #include <set>
@@ -7,19 +11,16 @@
 #include <algorithm>
 #include <limits>
 
-#include <crest/geometry/indexed_mesh.hpp>
-#include <crest/util/algorithms.hpp>
-
 namespace crest {
 
-    template <typename Scalar, typename Index>
-    std::vector<Index> patch_for_element(const IndexedMesh<Scalar, Index> & mesh,
-                                         Index element,
-                                         unsigned int max_distance)
+    template <typename Tag = GenericPatchTag, typename Scalar, typename Index>
+    Patch<Scalar, Index, Tag> patch_for_element(const IndexedMesh<Scalar, Index> & mesh,
+                                                Index element,
+                                                unsigned int max_distance)
     {
         assert(element >= 0 && element < mesh.num_elements());
 
-        std::set<Index> patch;
+        std::set<Index> patch_indices;
 
         // We wish to do a BFS, but it's a bit tricky, because in the context of IndexedMesh,
         // the "neighbors" of a triangle correspond to triangles which share an edge with the given triangle,
@@ -34,7 +35,7 @@ namespace crest {
 
         std::queue<Index> queue;
         queue.push(element);
-        patch.insert(element);
+        patch_indices.insert(element);
 
         while (!queue.empty())
         {
@@ -70,76 +71,16 @@ namespace crest {
                         if (vertex_distances.count(v) == 0) vertex_distances[v] = dist;
                     }
 
-                    if (patch.count(neighbor) == 0 && dist <= max_distance)
+                    if (patch_indices.count(neighbor) == 0 && dist <= max_distance)
                     {
                         queue.push(neighbor);
-                        patch.insert(neighbor);
+                        patch_indices.insert(neighbor);
                     }
                 }
             }
         }
 
-        return std::vector<Index>(patch.begin(), patch.end());
+        return make_patch<Scalar, Index, Tag>(mesh, std::vector<Index>(patch_indices.begin(), patch_indices.end()));
     };
-
-    template <typename Scalar, typename Index>
-    std::vector<Index> patch_vertices(const IndexedMesh<Scalar, Index> & mesh,
-                                      const std::vector<Index> & patch)
-    {
-        assert(std::is_sorted(patch.cbegin(), patch.cend()));
-        std::vector<Index> vertices_in_patch;
-        vertices_in_patch.reserve(3 * patch.size());
-        for (const auto t : patch)
-        {
-            const auto vertices = mesh.elements()[t].vertex_indices;
-            std::copy(vertices.cbegin(), vertices.cend(), std::back_inserter(vertices_in_patch));
-        }
-        std::sort(vertices_in_patch.begin(), vertices_in_patch.end());
-        vertices_in_patch.erase(std::unique(vertices_in_patch.begin(), vertices_in_patch.end()),
-                                vertices_in_patch.end());
-        return vertices_in_patch;
-    };
-
-    template <typename Scalar, typename Index>
-    std::vector<Index> patch_interior(const IndexedMesh<Scalar, Index> & mesh,
-                                      const std::vector<Index> & patch)
-    {
-        assert(std::is_sorted(patch.cbegin(), patch.cend()));
-
-        std::vector<Index> patch_vertices;
-        std::vector<Index> boundary;
-        patch_vertices.reserve(3 * patch.size());
-
-        for (const auto t : patch)
-        {
-            const auto neighbors = mesh.neighbors_for(t);
-            const auto vertices = mesh.elements()[t].vertex_indices;
-            std::copy(vertices.begin(), vertices.end(), std::back_inserter(patch_vertices));
-
-            const auto edge_is_on_patch_boundary = [&] (auto edge_index)
-            {
-                const auto neighbor = neighbors[edge_index];
-                return !std::binary_search(patch.cbegin(), patch.cend(), neighbor);
-            };
-
-            for (size_t e = 0; e < 3; ++e)
-            {
-                if (edge_is_on_patch_boundary(e))
-                {
-                    // Denote the edge as (a, b). If the edge is on the boundary, then a and b are boundary vertices
-                    boundary.push_back(vertices[e]);
-                    boundary.push_back(vertices[(e + 1) % 3]);
-                }
-            }
-        }
-
-        patch_vertices = algo::sorted_unique(std::move(patch_vertices));
-        boundary = algo::sorted_unique(std::move(boundary));
-        std::vector<Index> interior;
-        std::set_difference(patch_vertices.cbegin(), patch_vertices.cend(),
-                            boundary.cbegin(), boundary.cend(),
-                            std::back_inserter(interior));
-        return interior;
-    }
 
 }

@@ -14,7 +14,8 @@ set(UNIT_TEST_SOURCES
         tests/unit/util/eigen_extensions.cpp
         tests/unit/geometry/refinement.cpp
         tests/unit/quadrature/simpsons.cpp
-        tests/unit/geometry/mesh_algorithms.cpp)
+        tests/unit/geometry/mesh_algorithms.cpp
+        tests/unit/geometry/patch.cpp)
 
 set(INTEGRATION_TEST_SOURCES
         tests/integration/integration.cpp
