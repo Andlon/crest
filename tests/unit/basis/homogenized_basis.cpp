@@ -54,7 +54,7 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     const auto coarse_interior = mesh.coarse_mesh().compute_interior_vertices();
     const auto fine_dof = crest::algo::integer_range<int>(0, mesh.fine_mesh().num_vertices());
 
-    const auto I_H = crest::quasi_interpolator(mesh.coarse_mesh(), mesh.fine_mesh());
+    const auto I_H = crest::quasi_interpolator(mesh);
     // We need to test with the coarse interior, because the matrix returned by quasi_interpolator
     // does not impose that I_H x = 0 on the boundary.
     const auto I_H_interior = sparse_submatrix(I_H, coarse_interior, fine_dof);
@@ -124,7 +124,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
     const auto coarse_interior = coarse_mesh.compute_interior_vertices();
     const auto fine_dof = crest::algo::integer_range<int>(0, fine_mesh.num_vertices());
 
-    const auto I_H = crest::quasi_interpolator(coarse_mesh, fine_mesh);
+    const auto I_H = crest::quasi_interpolator(biscale);
 
     // We need to test with the coarse interior, because the matrix returned by quasi_interpolator
     // does not impose that I_H x = 0 on the boundary.
@@ -198,7 +198,7 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
     const auto basis_interior_weights = sparse_submatrix(basis_weights, coarse_interior, fine_interior);
 
     // Construct a basis for W_H, the kernel of I_H.
-    const Eigen::MatrixXd I_H = sparse_submatrix(crest::quasi_interpolator(coarse, fine), coarse_interior, fine_interior);
+    const Eigen::MatrixXd I_H = sparse_submatrix(crest::quasi_interpolator(biscale), coarse_interior, fine_interior);
     const Eigen::JacobiSVD<Eigen::MatrixXd> svd(I_H, Eigen::ComputeFullV);
     const auto r = svd.rank();
     const auto n = I_H.cols();
@@ -278,7 +278,7 @@ RC_GTEST_PROP(standard_coarse_basis_in_fine_space, quasi_interpolation_recovers_
     const auto biscale = crest::BiscaleMesh<double, int>(coarse, fine);
 
     const auto basis = crest::detail::standard_coarse_basis_in_fine_space(biscale);
-    const auto I_H = crest::quasi_interpolator(coarse, fine);
+    const auto I_H = crest::quasi_interpolator(biscale);
 
     const Eigen::SparseMatrix<double> interpolated = I_H * basis.transpose();
     const Eigen::MatrixXd interpolated_dense = interpolated;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <crest/geometry/indexed_mesh.hpp>
+#include <crest/geometry/biscale_mesh.hpp>
 #include <crest/geometry/triangle.hpp>
 #include <crest/quadrature/triquad.hpp>
 #include <crest/util/eigen_extensions.hpp>
@@ -48,55 +49,51 @@ namespace crest
          */
         template <typename Scalar>
         Eigen::SparseMatrix<Scalar> build_affine_interpolator_rhs(
-                const IndexedMesh<Scalar, int> & coarse,
-                const IndexedMesh<Scalar, int> & fine)
+                const BiscaleMesh<Scalar, int> & mesh)
         {
             std::vector<Eigen::Triplet<Scalar>> triplets;
 
-            for (int t = 0; t < coarse.num_elements(); ++t)
+            for (int coarse_index = 0; coarse_index < mesh.coarse_mesh().num_elements(); ++coarse_index)
             {
                 // The basis functions p_h in the affine space can be expressed as
                 // p_h(x, y) = a x + b y + c
                 // for some coefficients a, b, c.
-                const auto coarse_triangle = coarse.triangle_for(t);
+                const auto coarse_triangle = mesh.coarse_mesh().triangle_for(coarse_index);
                 const Eigen::Matrix<Scalar, 3, 3> coarse_coeff = basis_coefficients_for_triangle(coarse_triangle);
-                for (size_t i = 0; i < 3; ++i)
+                for (const auto fine_index : mesh.descendants_for(coarse_index))
                 {
-                    // TODO: Implement reverse ancestry lookup for determining fine-scale elements contained
-                    // in the current coarse scale element
-                    for (int k = 0; k < fine.num_elements(); ++k)
-                    {
-                        if (fine.ancestor_for(k) == t)
-                        {
-                            const auto vertex_indices = fine.elements()[k].vertex_indices;
-                            const auto fine_triangle = fine.triangle_for(k);
-                            const Eigen::Matrix<Scalar, 3, 3> fine_coeff = basis_coefficients_for_triangle(fine_triangle);
+                    const auto vertex_indices = mesh.fine_mesh().elements()[fine_index].vertex_indices;
+                    const auto fine_triangle = mesh.fine_mesh().triangle_for(fine_index);
+                    const Eigen::Matrix<Scalar, 3, 3> fine_coeff = basis_coefficients_for_triangle(fine_triangle);
 
-                            for (size_t j = 0; j < 3; ++j)
+                    // Local coarse basis function i
+                    for (size_t i = 0; i < 3; ++i)
+                    {
+                        // Local fine basis function j
+                        for (size_t j = 0; j < 3; ++j)
+                        {
+                            const auto vertex_index = vertex_indices[j];
+                            const auto product = [&](auto x, auto y)
                             {
-                                const auto vertex_index = vertex_indices[j];
-                                const auto product = [&] (auto x, auto y)
-                                {
-                                    const auto coarse_basis_value =
-                                            coarse_coeff(0, i) * x + coarse_coeff(1, i) * y + coarse_coeff(2, i);
-                                    const auto fine_basis_value =
-                                            fine_coeff(0, j) * x + fine_coeff(1, j) * y + fine_coeff(2, j);
-                                    return coarse_basis_value * fine_basis_value;
-                                };
-                                const auto inner_product = triquad<2>(product,
-                                                                      fine_triangle.a,
-                                                                      fine_triangle.b,
-                                                                      fine_triangle.c);
-                                const auto row = 3 * t + i;
-                                triplets.push_back(Eigen::Triplet<Scalar>(row, vertex_index, inner_product));
-                            }
+                                const auto coarse_basis_value =
+                                        coarse_coeff(0, i) * x + coarse_coeff(1, i) * y + coarse_coeff(2, i);
+                                const auto fine_basis_value =
+                                        fine_coeff(0, j) * x + fine_coeff(1, j) * y + fine_coeff(2, j);
+                                return coarse_basis_value * fine_basis_value;
+                            };
+                            const auto inner_product = triquad<2>(product,
+                                                                  fine_triangle.a,
+                                                                  fine_triangle.b,
+                                                                  fine_triangle.c);
+                            const auto row = 3 * coarse_index + i;
+                            triplets.push_back(Eigen::Triplet<Scalar>(row, vertex_index, inner_product));
                         }
                     }
                 }
             }
 
-            const auto num_dof_affine_space = 3 * coarse.num_elements();
-            Eigen::SparseMatrix<Scalar> B(num_dof_affine_space, fine.num_vertices());
+            const auto num_dof_affine_space = 3 * mesh.coarse_mesh().num_elements();
+            Eigen::SparseMatrix<Scalar> B(num_dof_affine_space, mesh.fine_mesh().num_vertices());
             B.setFromTriplets(triplets.cbegin(), triplets.cend());
             return B;
         };
@@ -148,11 +145,10 @@ namespace crest
          */
         template <typename Scalar>
         Eigen::SparseMatrix<Scalar> affine_interpolator(
-                const IndexedMesh<Scalar, int> & coarse,
-                const IndexedMesh<Scalar, int> & fine)
+                const BiscaleMesh<Scalar, int> & mesh)
         {
-            const Eigen::SparseMatrix<Scalar> B = build_affine_interpolator_rhs(coarse, fine);
-            const Eigen::SparseMatrix<Scalar> P = build_affine_interpolator_lhs_inverse(coarse);
+            const Eigen::SparseMatrix<Scalar> B = build_affine_interpolator_rhs(mesh);
+            const Eigen::SparseMatrix<Scalar> P = build_affine_interpolator_lhs_inverse(mesh.coarse_mesh());
             return P * B;
         };
 
@@ -207,11 +203,10 @@ namespace crest
     }
 
     template <typename Scalar>
-    Eigen::SparseMatrix<Scalar> quasi_interpolator(const IndexedMesh<Scalar, int> & coarse,
-                                                   const IndexedMesh<Scalar, int> & fine)
+    Eigen::SparseMatrix<Scalar> quasi_interpolator(const BiscaleMesh<Scalar, int> & mesh)
     {
-        const auto P = detail::affine_interpolator(coarse, fine);
-        const auto J = detail::nodal_average_interpolator(coarse);
+        const auto P = detail::affine_interpolator(mesh);
+        const auto J = detail::nodal_average_interpolator(mesh.coarse_mesh());
         return J * P;
     }
 

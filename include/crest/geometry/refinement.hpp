@@ -109,6 +109,7 @@ namespace crest
     {
         // Mark all elements whose diameters are too big, refine marked elements. Repeat until all elements
         // have sufficiently small diameters.
+        mesh.reset_ancestry();
         assert(tolerance > 0);
         std::vector<Index> marked(mesh.num_elements());
 

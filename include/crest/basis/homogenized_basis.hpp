@@ -223,8 +223,7 @@ namespace crest
                 const BiscaleMesh<Scalar, int> & mesh,
                 unsigned int oversampling)
         {
-            // TODO: Make I_H take Biscale mesh as well
-            const auto I_H = quasi_interpolator(mesh.coarse_mesh(), mesh.fine_mesh());
+            const auto I_H = quasi_interpolator(mesh);
 
             Eigen::SparseMatrix<Scalar> A(mesh.fine_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
             {

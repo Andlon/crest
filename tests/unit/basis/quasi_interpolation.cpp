@@ -3,8 +3,9 @@
 #include <rapidcheck/gtest.h>
 
 #include <crest/geometry/indexed_mesh.hpp>
-#include <crest/basis/quasi_interpolation.hpp>
+#include <crest/geometry/biscale_mesh.hpp>
 #include <crest/geometry/refinement.hpp>
+#include <crest/basis/quasi_interpolation.hpp>
 
 #include <util/vertex_matchers.hpp>
 #include <util/test_generators.hpp>
@@ -39,13 +40,14 @@ TEST(affine_interpolator_test, minimal_mesh)
 
     const auto coarse_mesh = IndexedMesh(coarse_vertices, coarse_elements);
     const auto fine_mesh = crest::bisect_to_tolerance(coarse_mesh, 1.1);
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
 
     ASSERT_THAT(fine_mesh.num_vertices(), Eq(5));
     ASSERT_THAT(fine_mesh.num_elements(), Eq(4));
     ASSERT_THAT(fine_mesh.vertices()[4], VertexDoubleEq(Vertex(0.5, 0.5)));
 
     const Eigen::SparseMatrix<double, Eigen::RowMajor> interpolator =
-            crest::detail::affine_interpolator(coarse_mesh, fine_mesh);
+            crest::detail::affine_interpolator(biscale);
 
     EXPECT_THAT(interpolator.rows(), Eq(6));
     EXPECT_THAT(interpolator.cols(), Eq(5));
@@ -108,12 +110,13 @@ TEST(quasi_interpolator, verify_successful_compilation)
 
     const auto coarse_mesh = IndexedMesh(coarse_vertices, coarse_elements);
     const auto fine_mesh = crest::bisect_to_tolerance(coarse_mesh, 1.1);
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
 
     ASSERT_THAT(fine_mesh.num_vertices(), Eq(5));
     ASSERT_THAT(fine_mesh.num_elements(), Eq(4));
     ASSERT_THAT(fine_mesh.vertices()[4], VertexDoubleEq(Vertex(0.5, 0.5)));
 
-    const auto I_H = crest::quasi_interpolator(coarse_mesh, fine_mesh);
+    const auto I_H = crest::quasi_interpolator(biscale);
     EXPECT_THAT(I_H.rows(), Eq(coarse_mesh.num_vertices()));
     EXPECT_THAT(I_H.cols(), Eq(fine_mesh.num_vertices()));
 }
@@ -122,9 +125,10 @@ TEST(quasi_interpolator, verify_successful_compilation)
 RC_GTEST_PROP(quasi_interpolator_test, interpolator_is_identity_map_for_equal_coarse_and_fine, ())
 {
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
+    const auto biscale = crest::BiscaleMesh<double, int>(mesh, mesh);
     const auto N = mesh.num_vertices();
     const MatrixX<double> identity = MatrixX<double>::Identity(N, N);
-    const MatrixX<double> I_H = crest::quasi_interpolator(mesh, mesh);
+    const MatrixX<double> I_H = crest::quasi_interpolator(biscale);
 
     RC_ASSERT(Value(I_H, MatrixEq(identity)));
 }
