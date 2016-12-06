@@ -71,9 +71,8 @@ namespace crest
         matrix_dim_attrib.write(H5::PredType::NATIVE_INT, matrix_dim);
     }
 
-    inline HomogenizedBasis<double> import_basis(const IndexedMesh<double, int> & coarse,
-                                          const IndexedMesh<double, int> & fine,
-                                          const std::string &filename)
+    inline HomogenizedBasis<double> import_basis(const BiscaleMesh<double, int> & mesh,
+                                                 const std::string &filename)
     {
         H5::H5File file(filename.c_str(), H5F_ACC_RDONLY);
 
@@ -154,6 +153,6 @@ namespace crest
 
         weights.makeCompressed();
 
-        return HomogenizedBasis<double>(coarse, fine, weights);
+        return HomogenizedBasis<double>(mesh, weights);
     }
 }

@@ -90,13 +90,14 @@ extern "C"
             corners.emplace_back(crest::ReentrantCorner<double, int32_t>(corner_indices[i], corner_radians[i]));
         }
 
-        const auto two_scale = crest::threshold(mesh_from_flat_data(initial_mesh),
+        const auto biscale = crest::threshold(mesh_from_flat_data(initial_mesh),
                                                 tolerance,
                                                 corners);
 
         flat_mesh_data ** array = new flat_mesh_data * [2];
-        array[0] = flat_data_from_mesh(std::move(two_scale.coarse));
-        array[1] = flat_data_from_mesh(std::move(two_scale.fine));
+        // This is currently copying the meshes, which is rather unnecessary.
+        array[0] = flat_data_from_mesh(biscale.coarse_mesh());
+        array[1] = flat_data_from_mesh(biscale.fine_mesh());
         return array;
     }
 

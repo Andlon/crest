@@ -56,6 +56,10 @@ namespace crest {
         explicit IndexedMesh(std::vector<Vertex> vertices,
                              std::vector<Element> indices);
 
+        explicit IndexedMesh(std::vector<Vertex> vertices,
+                             std::vector<Element> indices,
+                             std::vector<Index> ancestry);
+
         const std::vector<Vertex> &     vertices() const { return _vertices; }
         const std::vector<Element> &    elements() const { return _elements; }
         const std::vector<Neighbors> &  neighbors() const { return _neighbors; }
@@ -327,6 +331,18 @@ namespace crest {
             // Make every triangle an ancestor of itself
             _ancestors.push_back(i);
         }
+    }
+
+    template <typename T, typename I>
+    inline IndexedMesh<T, I>::IndexedMesh(std::vector<IndexedMesh<T, I>::Vertex> vertices,
+                                          std::vector<IndexedMesh<T, I>::Element> elements,
+                                          std::vector<I> ancestry)
+            :   _vertices(std::move(vertices)), _elements(std::move(elements)),
+                _neighbors(detail::find_neighbors(static_cast<I>(_vertices.size()), _elements))
+    {
+        assert(ancestry.size() == _elements.size());
+        _boundary = detail::determine_new_boundary_vertices(*this);
+        _ancestors = std::move(ancestry);
     }
 
     template <typename T, typename I>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <crest/geometry/indexed_mesh.hpp>
+#include <crest/geometry/biscale_mesh.hpp>
 
 #include <cassert>
 #include <algorithm>
@@ -139,7 +140,7 @@ namespace crest
         IndexedMesh<Scalar, Index> fine;
 
         explicit TwoScaleMeshes(IndexedMesh<Scalar, Index> coarse, IndexedMesh<Scalar, Index> fine)
-            :   coarse(std::move(coarse)), fine(std::move(fine)) {}
+                :   coarse(std::move(coarse)), fine(std::move(fine)) {}
     };
 
     template <typename Scalar, typename Index>
@@ -149,13 +150,13 @@ namespace crest
         Scalar radians;
 
         explicit ReentrantCorner(Index vertex_index, Scalar radians)
-            :   vertex_index(vertex_index), radians(radians) {}
+                :   vertex_index(vertex_index), radians(radians) {}
     };
 
     template <typename Scalar, typename Index>
-    inline TwoScaleMeshes<Scalar, Index> threshold(IndexedMesh<Scalar, Index> initial_mesh,
-                                                   Scalar tolerance,
-                                                   const std::vector<ReentrantCorner<Scalar, Index>> & corners)
+    inline BiscaleMesh<Scalar, Index> threshold(IndexedMesh<Scalar, Index> initial_mesh,
+                                                Scalar tolerance,
+                                                const std::vector<ReentrantCorner<Scalar, Index>> & corners)
     {
         const auto coarse = bisect_to_tolerance(std::move(initial_mesh), tolerance);
         auto fine = coarse;
@@ -169,7 +170,7 @@ namespace crest
                                                                corner.radians);
         }
 
-        return TwoScaleMeshes<Scalar, Index>(std::move(coarse), std::move(fine));
+        return BiscaleMesh<Scalar, Index>(std::move(coarse), std::move(fine));
     };
 
 }

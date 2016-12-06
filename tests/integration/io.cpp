@@ -33,15 +33,16 @@ RC_GTEST_PROP(basis_io, export_import_roundtrip, ())
 {
     const auto coarse = *crest::gen::arbitrary_unit_square_mesh();
     const auto fine = *crest::gen::arbitrary_refinement(coarse, 0).as("fine mesh");
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse, fine);
 
     const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
-    const auto basis = crest::HomogenizedBasis<double>(coarse, fine, oversampling);
+    const auto basis = crest::HomogenizedBasis<double>(biscale, oversampling);
 
     const auto file_path = TemporaryFilePath();
 
     crest::export_basis(basis, file_path.path());
 
-    const auto imported = crest::import_basis(coarse, fine, file_path.path());
+    const auto imported = crest::import_basis(biscale, file_path.path());
 
     const Eigen::MatrixXd original_weights = basis.basis_weights();
     const Eigen::MatrixXd imported_weights = imported.basis_weights();

@@ -374,11 +374,10 @@ protected:
 class HomogenizedLShaped : public LShapedBase
 {
 private:
-    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::BiscaleMesh<double, int> Mesh;
     typedef crest::HomogenizedBasis<double> Basis;
 
-    std::unique_ptr<const Mesh>     coarse_mesh;
-    std::unique_ptr<const Mesh>     fine_mesh;
+    std::unique_ptr<const Mesh>     mesh;
     std::unique_ptr<const Basis>    basis;
 
 protected:
@@ -392,20 +391,17 @@ protected:
         const auto initial_mesh = l_shaped.first;
         const auto initial_mesh_corners = l_shaped.second;
 
-        const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
-        coarse_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.coarse));
-        fine_mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+        const auto biscale = crest::threshold(initial_mesh, h, initial_mesh_corners);
+        mesh = std::make_unique<const Mesh>(std::move(biscale));
 
         timing.mesh_construction = timer.measure_and_reset();
 
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
-                ? std::make_unique<const Basis>(*coarse_mesh,
-                                                *fine_mesh,
+                ? std::make_unique<const Basis>(*mesh,
                                                 oversampling)
                 : std::make_unique<const Basis>(
-                        std::move(crest::import_basis(*coarse_mesh,
-                                                      *fine_mesh,
+                        std::move(crest::import_basis(*mesh,
                                                       parameters.basis_import_file)));
 
         timing.basis_construction = timer.measure_and_reset();
@@ -416,8 +412,8 @@ protected:
         }
 
         MeshDetails mesh_details;
-        mesh_details.num_elements = coarse_mesh->num_elements();
-        mesh_details.num_vertices = coarse_mesh->num_vertices();
+        mesh_details.num_elements = mesh->coarse_mesh().num_elements();
+        mesh_details.num_vertices = mesh->coarse_mesh().num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
@@ -445,8 +441,8 @@ protected:
 class StandardLShaped final : public LShapedBase
 {
 private:
-    typedef crest::IndexedMesh<double, int> Mesh;
-    typedef crest::LagrangeBasis2d<double> Basis;
+    typedef crest::BiscaleMesh<double, int> Mesh;
+    typedef crest::LagrangeBasis2d<double>  Basis;
 
     std::unique_ptr<const Mesh>         mesh;
     std::unique_ptr<const Basis>    basis;
@@ -462,18 +458,17 @@ protected:
         const auto initial_mesh = l_shaped.first;
         const auto initial_mesh_corners = l_shaped.second;
 
-        const auto coarse_fine_meshes = crest::threshold(initial_mesh, h, initial_mesh_corners);
-        mesh = std::make_unique<const Mesh>(std::move(coarse_fine_meshes.fine));
+        mesh = std::make_unique<const Mesh>(std::move(crest::threshold(initial_mesh, h, initial_mesh_corners)));
 
         timing.mesh_construction = timer.measure_and_reset();
 
-        basis = std::make_unique<const Basis>(*mesh);
+        basis = std::make_unique<const Basis>(mesh->fine_mesh());
 
         timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
-        mesh_details.num_elements = mesh->num_elements();
-        mesh_details.num_vertices = mesh->num_vertices();
+        mesh_details.num_elements = mesh->fine_mesh().num_elements();
+        mesh_details.num_vertices = mesh->fine_mesh().num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)

@@ -45,20 +45,16 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
 
     const auto initial_mesh = IndexedMesh<double, int>(coarse_vertices, coarse_elements);
 
-    const auto two_scale_meshes = crest::threshold(initial_mesh, 0.5,
-                                                   { crest::ReentrantCorner<double, int>(0, 2.35)});
+    const auto mesh = crest::threshold(initial_mesh, 0.5, { crest::ReentrantCorner<double, int>(0, 2.35)});
+    const auto basis = crest::detail::homogenized_basis_correctors(mesh, 4);
 
-    const auto basis = crest::detail::homogenized_basis_correctors(two_scale_meshes.coarse,
-                                                                   two_scale_meshes.fine,
-                                                                   4);
+    ASSERT_THAT(basis.rows(), Eq(mesh.coarse_mesh().num_vertices()));
+    ASSERT_THAT(basis.cols(), Eq(mesh.fine_mesh().num_vertices()));
 
-    ASSERT_THAT(basis.rows(), Eq(two_scale_meshes.coarse.num_vertices()));
-    ASSERT_THAT(basis.cols(), Eq(two_scale_meshes.fine.num_vertices()));
+    const auto coarse_interior = mesh.coarse_mesh().compute_interior_vertices();
+    const auto fine_dof = crest::algo::integer_range<int>(0, mesh.fine_mesh().num_vertices());
 
-    const auto coarse_interior = two_scale_meshes.coarse.compute_interior_vertices();
-    const auto fine_dof = crest::algo::integer_range<int>(0, two_scale_meshes.fine.num_vertices());
-
-    const auto I_H = crest::quasi_interpolator(two_scale_meshes.coarse, two_scale_meshes.fine);
+    const auto I_H = crest::quasi_interpolator(mesh.coarse_mesh(), mesh.fine_mesh());
     // We need to test with the coarse interior, because the matrix returned by quasi_interpolator
     // does not impose that I_H x = 0 on the boundary.
     const auto I_H_interior = sparse_submatrix(I_H, coarse_interior, fine_dof);
@@ -118,7 +114,9 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
                                                   return mesh.num_elements() != coarse_mesh.num_elements();
                                               });
 
-    const auto basis = crest::detail::homogenized_basis_correctors(coarse_mesh, fine_mesh, oversampling);
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
+
+    const auto basis = crest::detail::homogenized_basis_correctors(biscale, oversampling);
 
     ASSERT_THAT(basis.rows(), Eq(coarse_mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(fine_mesh.num_vertices()));
@@ -145,7 +143,8 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
 {
     const auto oversampling = static_cast<unsigned int>(*rc::gen::inRange(0, 6));
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
-    const auto basis = crest::detail::homogenized_basis_correctors(mesh, mesh, oversampling);
+    const auto biscale = crest::BiscaleMesh<double, int>(mesh, mesh);
+    const auto basis = crest::detail::homogenized_basis_correctors(biscale, oversampling);
 
     ASSERT_THAT(basis.rows(), Eq(mesh.num_vertices()));
     ASSERT_THAT(basis.cols(), Eq(mesh.num_vertices()));
@@ -188,13 +187,14 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
                                                return !mesh.compute_interior_vertices().empty();
                                            }).as("coarse mesh");
     const auto fine = *crest::gen::arbitrary_refinement(coarse).as("fine mesh");
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse, fine);
 
     const auto fine_interior = fine.compute_interior_vertices();
     const auto coarse_interior = coarse.compute_interior_vertices();
     const auto fine_basis = LagrangeBasis2d<double>(fine);
 
     const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
-    const auto basis_weights = crest::detail::corrected_basis_coefficients(coarse, fine, oversampling);
+    const auto basis_weights = crest::detail::corrected_basis_coefficients(biscale, oversampling);
     const auto basis_interior_weights = sparse_submatrix(basis_weights, coarse_interior, fine_interior);
 
     // Construct a basis for W_H, the kernel of I_H.
@@ -247,11 +247,14 @@ TEST(standard_coarse_basis_in_fine_space, basic_mesh)
             Element({2, 4, 3})
     };
 
+    const std::vector<int> fine_ancestry { 0, 1, 0, 1 };
+
     const auto coarse_mesh = IndexedMesh<double, int>(coarse_vertices, coarse_elements);
-    const auto fine_mesh = IndexedMesh<double, int>(fine_vertices, fine_elements);
+    const auto fine_mesh = IndexedMesh<double, int>(fine_vertices, fine_elements, fine_ancestry);
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
 
     const Eigen::Matrix<double, 4, 5> coarse_basis_in_fine =
-            crest::detail::standard_coarse_basis_in_fine_space(coarse_mesh, fine_mesh);
+            crest::detail::standard_coarse_basis_in_fine_space(biscale);
 
     Eigen::Matrix<double, 4, 5> expected;
     expected <<
@@ -272,8 +275,9 @@ RC_GTEST_PROP(standard_coarse_basis_in_fine_space, quasi_interpolation_recovers_
 
     const auto coarse = *crest::gen::arbitrary_unit_square_mesh().as("Coarse mesh");
     const auto fine = *crest::gen::arbitrary_refinement(coarse, 0, 5).as("Fine mesh");
+    const auto biscale = crest::BiscaleMesh<double, int>(coarse, fine);
 
-    const auto basis = crest::detail::standard_coarse_basis_in_fine_space(coarse, fine);
+    const auto basis = crest::detail::standard_coarse_basis_in_fine_space(biscale);
     const auto I_H = crest::quasi_interpolator(coarse, fine);
 
     const Eigen::SparseMatrix<double> interpolated = I_H * basis.transpose();
