@@ -375,7 +375,7 @@ namespace crest
         {
             if (weights.rows() == coarse.num_vertices() && weights.cols() == fine.num_vertices())
             {
-                _basis_weights = weights;
+                _basis_weights = std::move(weights);
             } else
             {
                 throw std::invalid_argument("Dimensions of basis weights are not compatible with "
