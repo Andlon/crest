@@ -17,8 +17,6 @@ namespace crest
 {
     namespace detail
     {
-
-
         template <typename Scalar>
         VectorX<Scalar> local_rhs(const BiscaleMesh<Scalar, int> & mesh,
                                   const std::vector<int> & fine_patch_interior,

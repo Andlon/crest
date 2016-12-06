@@ -137,18 +137,18 @@ TEST_F(submatrix_test, dense_5x5_all_indices)
 }
 
 TEST_F(sparse_submatrix_test, sparsity_pattern_zero_10x10) {
-    const auto rows = std::vector<int> { 3, 5, 7 };
+    const auto reverse_rows = std::vector<int> { -1, -1, -1, 0, -1, 1, -1, 2, -1, -1, -1};
     const auto cols = std::vector<int> { 0, 9 };
-    const auto pattern = submatrix_sparsity_pattern(zero_10x10, rows, cols);
+    const auto pattern = detail::submatrix_sparsity_pattern(zero_10x10, reverse_rows, cols);
 
     EXPECT_TRUE(pattern.isZero());
     EXPECT_THAT(pattern.rows(), Eq(2));
 }
 
 TEST_F(sparse_submatrix_test, sparsity_pattern_diagonal_10x10) {
-    const auto rows = std::vector<int> { 3, 5, 7 };
+    const auto reverse_rows = std::vector<int> { -1, -1, -1, 0, -1, 1, -1, 2, -1, -1, -1};
     const auto cols = std::vector<int> { 3, 4, 5 };
-    const auto pattern = submatrix_sparsity_pattern(diagonal_10x10, rows, cols);
+    const auto pattern = detail::submatrix_sparsity_pattern(diagonal_10x10, reverse_rows, cols);
 
     EXPECT_THAT(pattern.rows(), Eq(3));
     EXPECT_THAT(pattern(0), 1);
@@ -158,9 +158,9 @@ TEST_F(sparse_submatrix_test, sparsity_pattern_diagonal_10x10) {
 
 TEST_F(sparse_submatrix_test, sparsity_pattern_dense_5x5_arbitrary_indices)
 {
-    const auto rows = std::vector<int> { 1, 2, 4 };
+    const auto reverse_rows = std::vector<int> { -1, 0, 0, -1, 2 };
     const auto cols = std::vector<int> { 2, 4 };
-    const auto pattern = submatrix_sparsity_pattern(dense_5x5, rows, cols);
+    const auto pattern = detail::submatrix_sparsity_pattern(dense_5x5, reverse_rows, cols);
 
     EXPECT_THAT(pattern.rows(), Eq(2));
     EXPECT_THAT(pattern(0), 3);
@@ -169,9 +169,9 @@ TEST_F(sparse_submatrix_test, sparsity_pattern_dense_5x5_arbitrary_indices)
 
 TEST_F(sparse_submatrix_test, sparsity_pattern_dense_5x5_all_indices)
 {
-    const auto rows = std::vector<int> { 0, 1, 2, 3, 4 };
+    const auto reverse_rows = std::vector<int> { 0, 1, 2, 3, 4 };
     const auto cols = std::vector<int> { 0, 1, 2, 3, 4 };
-    const auto pattern = submatrix_sparsity_pattern(dense_5x5, rows, cols);
+    const auto pattern = detail::submatrix_sparsity_pattern(dense_5x5, reverse_rows, cols);
 
     EXPECT_THAT(pattern.rows(), Eq(5));
     EXPECT_THAT(pattern(0), Eq(5));

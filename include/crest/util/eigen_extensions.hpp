@@ -12,41 +12,37 @@ using VectorX = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 template <typename Scalar>
 using MatrixX = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 
-template <typename Scalar, typename Index>
-Eigen::VectorXi submatrix_sparsity_pattern(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
-                                           const std::vector<Index> & rows,
-                                           const std::vector<Index> & cols)
+namespace detail
 {
-    typedef typename Eigen::SparseMatrix<Scalar, 0, Index>::InnerIterator InnerIterator;
-    const auto submat_rows = static_cast<Index>(rows.size());
-    const auto submat_cols = static_cast<Index>(cols.size());
-
-    // Each entry in the vector holds the number of non-zero rows in the column
-    Eigen::VectorXi sparsity_pattern(submat_cols);
-
-    for (Index col = 0; col < submat_cols; ++col)
+    template <typename Scalar, typename Index>
+    Eigen::VectorXi submatrix_sparsity_pattern(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
+                                               const std::vector<Index> & reverse_rowmap,
+                                               const std::vector<Index> & cols)
     {
-        sparsity_pattern(col) = 0;
-        Index current_submat_row = 0;
-        const auto original_col = cols[col];
+        typedef typename Eigen::SparseMatrix<Scalar, 0, Index>::InnerIterator InnerIterator;
+        const auto submat_cols = static_cast<Index>(cols.size());
 
-        for (InnerIterator it(matrix, original_col); it && current_submat_row < submat_rows; ++it)
+        // Each entry in the vector holds the number of non-zero rows in the column
+        Eigen::VectorXi sparsity_pattern(submat_cols);
+
+        for (Index col = 0; col < submat_cols; ++col)
         {
-            while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
-            {
-                ++current_submat_row;
-            }
+            sparsity_pattern(col) = 0;
+            const auto original_col = cols[col];
 
-            if (current_submat_row < submat_rows && it.row() == rows[current_submat_row])
+            for (InnerIterator it(matrix, original_col); it; ++it)
             {
-                sparsity_pattern(col) += 1;
-                ++current_submat_row;
+                const auto submatrix_row = reverse_rowmap[it.row()];
+                if (submatrix_row >= 0)
+                {
+                    sparsity_pattern(col) += 1;
+                }
             }
         }
-    }
 
-    return sparsity_pattern;
-};
+        return sparsity_pattern;
+    }
+}
 
 template <typename Scalar, typename Index>
 Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
@@ -57,6 +53,16 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
     assert(std::is_sorted(rows.cbegin(), rows.cend()) && "Row indices must be sorted.");
     assert(std::is_sorted(cols.cbegin(), cols.cend()) && "Column indices must be sorted.");
 
+    // rows and cols map indices from the submatrix into the original matrix. We want to build a reverse map,
+    // which is generally not surjective, hence we denote elements that should not be present by -1.
+    std::vector<Index> reverse_rowmap(matrix.rows(), -1);
+
+    for (size_t submatrix_row = 0; submatrix_row < rows.size(); ++submatrix_row)
+    {
+        const auto original_row = rows[submatrix_row];
+        reverse_rowmap[original_row] = submatrix_row;
+    }
+
     const auto submat_rows = static_cast<Index>(rows.size());
     const auto submat_cols = static_cast<Index>(cols.size());
 
@@ -66,27 +72,20 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
         return submat;
     }
 
-    submat.reserve(submatrix_sparsity_pattern(matrix, rows, cols));
+    submat.reserve(detail::submatrix_sparsity_pattern(matrix, reverse_rowmap, cols));
 
     for (Index col = 0; col < submat.cols(); ++col)
     {
-        Index current_submat_row = 0;
         const auto original_col = cols[col];
 
         // We implicitly make the assumption here that the original matrix's columns are relatively sparse,
         // which is almost always the case.
-        for (InnerIterator it(matrix, original_col); it && current_submat_row < submat_rows; ++it)
+        for (InnerIterator it(matrix, original_col); it; ++it)
         {
-            while (current_submat_row < submat_rows && it.row() > rows[current_submat_row])
+            const auto submatrix_row = reverse_rowmap[it.row()];
+            if (submatrix_row >= 0)
             {
-                ++current_submat_row;
-            }
-
-            if (current_submat_row < submat_rows && it.row() == rows[current_submat_row])
-            {
-                const auto val = it.value();
-                submat.insert(current_submat_row, col) = val;
-                ++current_submat_row;
+                submat.insert(submatrix_row, col) = it.value();
             }
         }
     }
