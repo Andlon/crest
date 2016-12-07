@@ -97,7 +97,11 @@ std::unique_ptr<Experiment> make_experiment(const std::string & name)
     } else if (name == "inhomogeneous_dirichlet_unit_square") {
         return std::make_unique<InhomogeneousDirichletUnitSquare>();
     } else if (name == "homogenized_l_shaped") {
-        return std::make_unique<HomogenizedLShaped>();
+        return std::make_unique<HomogenizedLShaped<>>();
+    } else if (name == "homogenized_l_shaped_sparselu") {
+        return std::make_unique<HomogenizedLShaped<crest::SparseLuCorrectorSolver<double>>>();
+    } else if (name == "homogenized_l_shaped_schur") {
+        return std::make_unique<HomogenizedLShaped<crest::SchurCorrectorSolver<double>>>();
     } else if (name == "standard_l_shaped") {
         return std::make_unique<StandardLShaped>();
     } else {

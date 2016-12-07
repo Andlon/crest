@@ -11,6 +11,7 @@
 #include <crest/geometry/refinement.hpp>
 #include <crest/quadrature/simpsons.hpp>
 #include <crest/io/homogenized_basis_io.hpp>
+#include <crest/basis/schur_corrector_solver.hpp>
 
 #include <memory>
 
@@ -371,6 +372,7 @@ protected:
     }
 };
 
+template <typename CorrectorSolver = crest::SparseLuCorrectorSolver<double>>
 class HomogenizedLShaped : public LShapedBase
 {
 private:
@@ -384,6 +386,7 @@ protected:
     virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
     {
         using crest::SparseLuCorrectorSolver;
+        using crest::SchurCorrectorSolver;
 
         OfflineTiming timing;
         crest::Timer timer;
@@ -401,7 +404,7 @@ protected:
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
                 ? std::make_unique<const Basis>(
-                        std::move(SparseLuCorrectorSolver<double>().compute_basis(*mesh, oversampling)))
+                        std::move(CorrectorSolver().compute_basis(*mesh, oversampling)))
                 : std::make_unique<const Basis>(
                         std::move(crest::import_basis(*mesh, parameters.basis_import_file)));
 

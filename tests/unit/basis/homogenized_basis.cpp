@@ -6,6 +6,7 @@
 #include <crest/geometry/refinement.hpp>
 #include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/basis/homogenized_basis.hpp>
+#include <crest/basis/schur_corrector_solver.hpp>
 
 #include <crest/util/algorithms.hpp>
 
@@ -102,7 +103,8 @@ TEST(construct_saddle_point_problem_test, blockwise_correct)
     EXPECT_THAT(bottomRightCornerElements, Each(DoubleEq(0.0)));
 }
 
-RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
+template <typename CorrectorSolver>
+void check_correctors_are_in_interpolator_kernel()
 {
     const auto oversampling = *rc::gen::arbitrary<unsigned int>();
     const auto coarse_mesh = *crest::gen::arbitrary_unit_square_mesh(4);
@@ -116,7 +118,7 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
 
     const auto biscale = crest::BiscaleMesh<double, int>(coarse_mesh, fine_mesh);
 
-    const auto correctors = crest::SparseLuCorrectorSolver<double>().compute_correctors(biscale, oversampling);
+    const auto correctors = CorrectorSolver().compute_correctors(biscale, oversampling);
 
     ASSERT_THAT(correctors.rows(), Eq(coarse_mesh.num_vertices()));
     ASSERT_THAT(correctors.cols(), Eq(fine_mesh.num_vertices()));
@@ -139,7 +141,18 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel, ())
     RC_ASSERT(Z_dense.isZero(1e-14));
 }
 
-RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ())
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_sparselu, ())
+{
+    check_correctors_are_in_interpolator_kernel<crest::SparseLuCorrectorSolver<double>>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_schur, ())
+{
+    check_correctors_are_in_interpolator_kernel<crest::SchurCorrectorSolver<double>>();
+}
+
+template <typename CorrectorSolver>
+void check_correctors_are_zero_with_no_refinement()
 {
     const auto oversampling = static_cast<unsigned int>(*rc::gen::inRange(0, 6));
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
@@ -160,7 +173,18 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement, ()
     RC_ASSERT(max_abs < 1e-14);
 }
 
-RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space, ())
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_sparselu, ())
+{
+    check_correctors_are_zero_with_no_refinement<crest::SparseLuCorrectorSolver<double>>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_schur, ())
+{
+    check_correctors_are_zero_with_no_refinement<crest::SchurCorrectorSolver<double>>();
+}
+
+template <typename CorrectorSolver>
+void check_corrected_basis_is_orthogonal_to_fine_space()
 {
     // Let W be such that W_ij corrected basis function i is defined by
     //
@@ -216,6 +240,16 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
     RC_LOG() << "WAN: " << std::endl << product << std::endl << std::endl;
 
     RC_ASSERT(product.isZero(1e-14));
+}
+
+RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_sparselu, ())
+{
+    check_corrected_basis_is_orthogonal_to_fine_space<crest::SparseLuCorrectorSolver<double>>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_schur, ())
+{
+    check_corrected_basis_is_orthogonal_to_fine_space<crest::SchurCorrectorSolver<double>>();
 }
 
 TEST(standard_coarse_basis_in_fine_space, basic_mesh)
