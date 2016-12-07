@@ -96,10 +96,9 @@ TEST(construct_saddle_point_problem_test, blockwise_correct)
     const MatrixX<double> bottomRightCorner = C.bottomRightCorner(3, 3);
     const auto bottomRightCornerElements = std::vector<double>(bottomRightCorner.data(), bottomRightCorner.data() + 9);
 
-    // TODO: The current MatrixEq is not entirely reliable, I think. Improve!
-    EXPECT_THAT(C.topLeftCorner(5, 5), MatrixEq(A));
-    EXPECT_THAT(C.bottomLeftCorner(3, 5), MatrixEq(I_H));
-    EXPECT_THAT(C.topRightCorner(5, 3), MatrixEq(I_H.transpose()));
+    EXPECT_TRUE(C.topLeftCorner(5, 5).isApprox(A));
+    EXPECT_TRUE(C.bottomLeftCorner(3, 5).isApprox(I_H));
+    EXPECT_TRUE(C.topRightCorner(5, 3).isApprox(I_H.transpose()));
     EXPECT_THAT(bottomRightCornerElements, Each(DoubleEq(0.0)));
 }
 
@@ -297,7 +296,7 @@ TEST(standard_coarse_basis_in_fine_space, basic_mesh)
             0.0, 0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 1.0, 0.5;
 
-    ASSERT_THAT(coarse_basis_in_fine, MatrixEq(expected));
+    ASSERT_TRUE(coarse_basis_in_fine.isApprox(expected));
 }
 
 RC_GTEST_PROP(standard_coarse_basis_in_fine_space, quasi_interpolation_recovers_coarse_basis, ())

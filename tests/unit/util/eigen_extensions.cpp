@@ -92,7 +92,7 @@ TEST_F(sparse_submatrix_test, dense_5x5_arbitrary_indices)
             12, 14,
             22, 24;
 
-    EXPECT_THAT(Eigen::MatrixXi(mat), MatrixEq(expected));
+    EXPECT_TRUE(Eigen::MatrixXi(mat).isApprox(expected));
 }
 
 TEST_F(sparse_submatrix_test, dense_5x5_all_indices)
@@ -107,7 +107,7 @@ TEST_F(sparse_submatrix_test, dense_5x5_all_indices)
 
     const Eigen::MatrixXi expected = Eigen::MatrixXi(dense_5x5);
 
-    EXPECT_THAT(Eigen::MatrixXi(mat), MatrixEq(expected));
+    EXPECT_TRUE(Eigen::MatrixXi(mat).isApprox(expected));
 }
 
 TEST_F(submatrix_test, dense_5x5)
@@ -122,7 +122,7 @@ TEST_F(submatrix_test, dense_5x5)
             12, 14,
             22, 24;
 
-    EXPECT_THAT(mat, MatrixEq(expected));
+    EXPECT_TRUE(mat.isApprox(expected));
 }
 
 TEST_F(submatrix_test, dense_5x5_all_indices)
@@ -133,7 +133,7 @@ TEST_F(submatrix_test, dense_5x5_all_indices)
 
     const Eigen::MatrixXi expected = Eigen::MatrixXi(dense_5x5);
 
-    EXPECT_THAT(mat, MatrixEq(expected));
+    EXPECT_TRUE(mat.isApprox(expected));
 }
 
 TEST_F(sparse_submatrix_test, sparsity_pattern_zero_10x10) {

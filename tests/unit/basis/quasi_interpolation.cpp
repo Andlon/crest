@@ -130,5 +130,5 @@ RC_GTEST_PROP(quasi_interpolator_test, interpolator_is_identity_map_for_equal_co
     const MatrixX<double> identity = MatrixX<double>::Identity(N, N);
     const MatrixX<double> I_H = crest::quasi_interpolator(biscale);
 
-    RC_ASSERT(Value(I_H, MatrixEq(identity)));
+    RC_ASSERT(I_H.isApprox(identity));
 }

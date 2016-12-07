@@ -117,14 +117,14 @@ TEST_F(linear_lagrangian_basis_test, assemble_mass_matrix_1_interior_node)
     EXPECT_THAT(interior_mass.coeff(0, 0), DoubleEq(1.0 / 6.0));
 
     const auto boundary = mesh.boundary_vertices();
-    const auto boundary_mass = sparse_submatrix(assembly.mass, interior, boundary);
+    const Eigen::MatrixXd boundary_mass = sparse_submatrix(assembly.mass, interior, boundary);
 
     Eigen::Matrix<double, 1, 4> expected_boundary_mass;
     expected_boundary_mass << (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0), (1.0 / 24.0);
 
     EXPECT_THAT(boundary_mass.rows(), Eq(1));
     EXPECT_THAT(boundary_mass.cols(), Eq(4));
-    EXPECT_THAT(boundary_mass, MatrixEq(expected_boundary_mass));
+    EXPECT_TRUE(boundary_mass.isApprox(expected_boundary_mass));
 }
 
 TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_1_interior_node)
@@ -143,14 +143,14 @@ TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_1_interior_node)
     EXPECT_THAT(interior_stiffness.coeff(0, 0), DoubleEq(4.0));
 
     const auto boundary = mesh.boundary_vertices();
-    const auto boundary_stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
+    const Eigen::MatrixXd boundary_stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
 
     Eigen::Matrix<double, 1, 4> expected_boundary_stiffness;
     expected_boundary_stiffness << -1.0, -1.0, -1.0, -1.0;
 
     EXPECT_THAT(boundary_stiffness.rows(), Eq(1));
     EXPECT_THAT(boundary_stiffness.cols(), Eq(4));
-    EXPECT_THAT(boundary_stiffness, MatrixEq(expected_boundary_stiffness));
+    EXPECT_TRUE(boundary_stiffness.isApprox(expected_boundary_stiffness));
 }
 
 
@@ -187,7 +187,7 @@ TEST_F(linear_lagrangian_basis_test, assemble_mass_matrix_5_interior_nodes)
 
         EXPECT_THAT(interior_mass.rows(), Eq(5));
         EXPECT_THAT(interior_mass.cols(), Eq(5));
-        EXPECT_THAT(interior_mass, MatrixEq(expected_interior));
+        EXPECT_TRUE(interior_mass.isApprox(expected_interior));
     }
 
     {
@@ -213,7 +213,7 @@ TEST_F(linear_lagrangian_basis_test, assemble_mass_matrix_5_interior_nodes)
 
         EXPECT_THAT(boundary_mass.rows(), Eq(5));
         EXPECT_THAT(boundary_mass.cols(), Eq(8));
-        EXPECT_THAT(boundary_mass, MatrixEq(expected_boundary));
+        EXPECT_TRUE(boundary_mass.isApprox(expected_boundary));
     }
 }
 
@@ -251,7 +251,7 @@ TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_5_interior_nodes)
 
         EXPECT_THAT(interior_stiffness.rows(), Eq(5));
         EXPECT_THAT(interior_stiffness.cols(), Eq(5));
-        EXPECT_THAT(interior_stiffness, MatrixEq(expected_interior));
+        EXPECT_TRUE(interior_stiffness.isApprox(expected_interior));
     }
 
     {
@@ -276,7 +276,7 @@ TEST_F(linear_lagrangian_basis_test, assemble_stiffness_matrix_5_interior_nodes)
 
         EXPECT_THAT(boundary_stiffness.rows(), Eq(5));
         EXPECT_THAT(boundary_stiffness.cols(), Eq(8));
-        EXPECT_THAT(boundary_stiffness, MatrixEq(expected_boundary));
+        EXPECT_TRUE(boundary_stiffness.isApprox(expected_boundary));
     }
 
 
@@ -293,7 +293,7 @@ TEST_F(linear_lagrangian_basis_test, compute_load_zero_1_interior_node)
     Eigen::VectorXd expected(5);
     expected.setZero();
 
-    EXPECT_THAT(basis.load<1>(f), MatrixEq(expected));
+    EXPECT_TRUE(basis.load<1>(f).isApprox(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, compute_load_zero_5_interior_nodes)
@@ -306,7 +306,7 @@ TEST_F(linear_lagrangian_basis_test, compute_load_zero_5_interior_nodes)
     Eigen::VectorXd expected(13);
     expected.setZero();
 
-    EXPECT_THAT(basis.load<1>(f), MatrixEq(expected));
+    EXPECT_TRUE(basis.load<1>(f).isApprox(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, compute_load_one_1_interior_node)
@@ -324,7 +324,7 @@ TEST_F(linear_lagrangian_basis_test, compute_load_one_1_interior_node)
     Eigen::VectorXd expected(1);
     expected << (1.0 / 3.0);
 
-    EXPECT_THAT(load_interior, MatrixEq(expected));
+    EXPECT_TRUE(load_interior.isApprox(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, compute_quadratic_function_5_interior_node)
@@ -343,7 +343,7 @@ TEST_F(linear_lagrangian_basis_test, compute_quadratic_function_5_interior_node)
     Eigen::VectorXd expected(5);
     expected << a, a, b, a, a;
 
-    EXPECT_THAT(load_interior, MatrixEq(expected));
+    EXPECT_TRUE(load_interior.isApprox(expected));
 }
 
 TEST_F(linear_lagrangian_basis_test, interpolate_1_interior_node)
