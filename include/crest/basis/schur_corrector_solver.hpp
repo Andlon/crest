@@ -152,24 +152,12 @@ namespace crest
                 const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
                 int coarse_element) const override
         {
+            assert(local_fine_stiffness.rows() > 0);
+
             using Eigen::SparseMatrix;
             using Eigen::ConjugateGradient;
-            using Eigen::IncompleteCholesky;
-            using Eigen::IdentityPreconditioner;
-            using Eigen::IncompleteLUT;
             using Eigen::SimplicialLDLT;
             using detail::SchurComplementCoarseStiffnessPreconditioner;
-
-            if (fine_patch_interior.size() < 100)
-            {
-                // Fall back to SparseLU for small problems
-                return _lu.compute_element_correctors_for_patch(mesh,
-                                                                fine_patch_interior,
-                                                                local_coarse_stiffness,
-                                                                local_fine_stiffness,
-                                                                local_quasi_interpolator,
-                                                                coarse_element);
-            }
 
             // Define the type of the solver used to solve the "stiffness problem" Ax = b.
             typedef ConjugateGradient<
@@ -197,9 +185,6 @@ namespace crest
             schur_solver.preconditioner().setCoarseStiffnessMatrix(A_H);
             schur_solver.compute(S);
 
-            Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> coarse_solver(A_H);
-            assert(coarse_solver.info() == Eigen::Success);
-
             for (int i = 0; i < 3; ++i)
             {
                 const auto b = this->local_rhs(mesh, fine_patch_interior, coarse_element, i);
@@ -211,9 +196,7 @@ namespace crest
                 } else
                 {
                     const VectorX<Scalar> y = stiffness_solver.solve(b);
-                    const VectorX<Scalar> kappa_rhs = I_H * y;
-                    const VectorX<Scalar> kappa_guess = coarse_solver.solve(kappa_rhs);
-                    const VectorX<Scalar> kappa = schur_solver.solveWithGuess(I_H * y, kappa_guess);
+                    const VectorX<Scalar> kappa = schur_solver.solve(I_H * y);
                     corrector = stiffness_solver.solve(b - I_H.transpose() * kappa);
                 }
 
