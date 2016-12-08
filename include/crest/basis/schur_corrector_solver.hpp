@@ -48,7 +48,7 @@ namespace crest
             }
 
             const InterpolatorMatrixType &  quasiInterpolator() const { return *_I_H; }
-            const StiffnessMatrixType    &  stiffnessMatrix() const { return _A; }
+            const StiffnessMatrixType    &  stiffnessMatrix() const { return *_A; }
             const StiffnessSolver        &  stiffnessSolver() const { return *_stiffness_solver; }
 
             SchurComplement & withQuasiInterpolator(const InterpolatorMatrixType & I_H)
@@ -74,6 +74,63 @@ namespace crest
             const StiffnessSolver           * _stiffness_solver;
             const StiffnessMatrixType       * _A;
             const InterpolatorMatrixType    * _I_H;
+        };
+
+        /**
+         * Preconditioner for the Schur complement problem S y = b,
+         * where S = I_H A^-1 I_H^T,
+         * where I_H is a quasi-interpolation operator and A is an SPD stiffness matrix.
+         *
+         * The preconditioner is defined by the approximation
+         * S_diag = I_H diag(A)^{-1} I_H^T.
+         */
+        template <typename Scalar>
+        class DiagonalizedSchurComplementPreconditioner
+        {
+        public:
+            DiagonalizedSchurComplementPreconditioner() {}
+
+            template<typename MatrixType>
+            DiagonalizedSchurComplementPreconditioner& analyzePattern(const MatrixType& ) { return *this; }
+
+            template <
+                    typename StiffnessSolver,
+                    typename StiffnessMatrixType,
+                    typename InterpolatorMatrixType>
+            DiagonalizedSchurComplementPreconditioner& compute(
+                    const SchurComplement<
+                            Scalar,
+                            StiffnessSolver,
+                            StiffnessMatrixType,
+                            InterpolatorMatrixType> & schur_complement)
+            {
+                _approx_stiffness_solver.compute(schur_complement.stiffnessMatrix());
+                _diagonalized_schur.withStiffness(schur_complement.stiffnessMatrix(), _approx_stiffness_solver);
+                _diagonalized_schur.withQuasiInterpolator(schur_complement.quasiInterpolator());
+                _outer_solver.compute(_diagonalized_schur);
+                return *this;
+            }
+
+            template<typename MatrixType>
+            DiagonalizedSchurComplementPreconditioner& factorize(const MatrixType & mat) { return *this; }
+
+            // Note: this copies the output, so it's not currently optimal. Can maybe use the Solve<> struct
+            // instead? TODO
+            template<typename Rhs>
+            inline const Rhs solve(const Rhs& b) const
+            {
+                return _outer_solver.solve(b);
+            }
+
+            Eigen::ComputationInfo info() { return Eigen::Success; }
+
+        private:
+            Eigen::DiagonalPreconditioner<Scalar> _approx_stiffness_solver;
+            SchurComplement<Scalar, Eigen::DiagonalPreconditioner<Scalar>> _diagonalized_schur;
+            Eigen::ConjugateGradient<
+                    SchurComplement<Scalar, Eigen::DiagonalPreconditioner<Scalar>>,
+                    Eigen::Lower|Eigen::Upper,
+                    Eigen::IdentityPreconditioner> _outer_solver;
         };
 
         template <typename Scalar>
@@ -107,63 +164,8 @@ namespace crest
                 _A_H = A;
             }
 
-
         private:
             Eigen::SparseMatrix<Scalar> _A_H;
-        };
-
-        /**
-         * WARNING: this class does not work properly, and so will be woefully detrimental to convergence at the moment!
-         * TODO: Fix it!
-         */
-        template <typename Scalar>
-        class SchurComplementDiagonalPreconditioner
-        {
-        public:
-            SchurComplementDiagonalPreconditioner() {}
-
-            template<typename MatrixType>
-            SchurComplementDiagonalPreconditioner& analyzePattern(const MatrixType& ) { return *this; }
-
-            template<typename MatrixType>
-            SchurComplementDiagonalPreconditioner& factorize(const MatrixType&) { return *this; }
-
-            template<typename MatrixType>
-            SchurComplementDiagonalPreconditioner& compute(const MatrixType&) { return *this; }
-
-            // Note: this copies the output, so it's not currently optimal. Can maybe use the Solve<> struct
-            // instead?
-            template<typename Rhs>
-            inline const Rhs solve(const Rhs& b) const
-            {
-                // This is completely wrong
-                return _I_H * _A_inv_diag * _I_H.transpose() * b;
-            }
-
-            Eigen::ComputationInfo info() { return Eigen::Success; }
-
-            template <typename MatrixType>
-            void setStiffnessMatrix(const MatrixType & A)
-            {
-                _A_inv_diag.resize(A.cols());
-                for(int j = 0; j < A.outerSize(); ++j)
-                {
-                    typename MatrixType::InnerIterator it(A, j);
-                    while(it && it.index() != j) ++it;
-
-                    if(it && it.index() == j && it.value() != Scalar(0))
-                        _A_inv_diag(j) = Scalar(1) / it.value();
-                    else
-                        _A_inv_diag(j) = Scalar(1);
-                }
-            }
-
-            template<typename MatrixType>
-            void setQuasiInterpolator(const MatrixType& I_H) { _I_H = I_H; }
-
-        private:
-            VectorX<Scalar> _A_inv_diag;
-            Eigen::SparseMatrix<Scalar>   _I_H;
         };
     }
 
