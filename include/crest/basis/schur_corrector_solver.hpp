@@ -5,13 +5,20 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
+#include <memory>
+
 namespace crest
 {
     namespace detail
     {
 
-        template <typename _Scalar, typename _StiffnessSolver>
-        class SchurComplement : public Eigen::EigenBase<SchurComplement<_Scalar, _StiffnessSolver>>
+        template <
+                typename _Scalar,
+                typename StiffnessSolver,
+                typename StiffnessMatrixType = Eigen::SparseMatrix<_Scalar>,
+                typename InterpolatorMatrixType = Eigen::SparseMatrix<_Scalar> >
+        class SchurComplement
+                : public Eigen::EigenBase<SchurComplement<_Scalar, StiffnessSolver, InterpolatorMatrixType>>
         {
         public:
             typedef _Scalar Scalar;
@@ -25,28 +32,48 @@ namespace crest
                 IsRowMajor = false
             };
 
-            Eigen::Index rows() const { return _I_H.rows(); }
+            SchurComplement() : _stiffness_solver(nullptr), _A(nullptr), _I_H(nullptr) {}
 
-            Eigen::Index cols() const { return _I_H.rows(); }
+            Eigen::Index rows() const { return _I_H->rows(); }
+            Eigen::Index cols() const { return _I_H->rows(); }
 
             template <typename Rhs>
-            Eigen::Product<SchurComplement<Scalar, _StiffnessSolver>, Rhs, Eigen::AliasFreeProduct>
+            Eigen::Product<SchurComplement<Scalar, StiffnessSolver>, Rhs, Eigen::AliasFreeProduct>
             operator*(const Eigen::MatrixBase<Rhs> & x) const
             {
                 return Eigen::Product<
-                        SchurComplement<Scalar, _StiffnessSolver>,
+                        SchurComplement<Scalar, StiffnessSolver>,
                         Rhs,
                         Eigen::AliasFreeProduct>(*this, x.derived());
             }
 
-            explicit SchurComplement(_StiffnessSolver & stiffness_solver, const Eigen::SparseMatrix<Scalar> & I_H)
-                    : _stiffness_solver(stiffness_solver), _I_H(I_H)
-            { }
+            const InterpolatorMatrixType &  quasiInterpolator() const { return *_I_H; }
+            const StiffnessMatrixType    &  stiffnessMatrix() const { return _A; }
+            const StiffnessSolver        &  stiffnessSolver() const { return *_stiffness_solver; }
 
-            // Temporarily public, until we can find a better way to expose them to the product implementation
-        public:
-            const _StiffnessSolver & _stiffness_solver;
-            const Eigen::SparseMatrix<Scalar> & _I_H;
+            SchurComplement & withQuasiInterpolator(const InterpolatorMatrixType & I_H)
+            {
+                _I_H = &I_H;
+                return *this;
+            }
+
+            SchurComplement & withStiffness(const StiffnessMatrixType & stiffness_matrix,
+                                            const StiffnessSolver & stiffness_solver)
+            {
+                _A = &stiffness_matrix;
+                _stiffness_solver = &stiffness_solver;
+                return *this;
+            }
+
+            bool isInitialized() const
+            {
+                return _stiffness_solver != nullptr && _I_H != nullptr && _A != nullptr;
+            }
+
+        private:
+            const StiffnessSolver           * _stiffness_solver;
+            const StiffnessMatrixType       * _A;
+            const InterpolatorMatrixType    * _I_H;
         };
 
         template <typename Scalar>
@@ -147,9 +174,9 @@ namespace crest
         virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
                 const std::vector<int> & fine_patch_interior,
-                const Eigen::SparseMatrix<Scalar> & local_coarse_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_fine_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
+                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
+                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
+                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
                 int coarse_element) const override
         {
             assert(local_fine_stiffness.rows() > 0);
@@ -180,10 +207,12 @@ namespace crest
             const auto & A_H = local_coarse_stiffness;
 
             StiffnessSolver stiffness_solver(A_h);
-            SchurComplement S(stiffness_solver, I_H);
+            const auto schur_operator = SchurComplement()
+                    .withQuasiInterpolator(I_H)
+                    .withStiffness(A_h, stiffness_solver);
             SchurComplementSolver schur_solver;
             schur_solver.preconditioner().setCoarseStiffnessMatrix(A_H);
-            schur_solver.compute(S);
+            schur_solver.compute(schur_operator);
 
             for (int i = 0; i < 3; ++i)
             {
@@ -218,9 +247,6 @@ namespace crest
 
             return triplets;
         }
-
-    private:
-        SparseLuCorrectorSolver<Scalar> _lu;
     };
 
 
@@ -269,8 +295,11 @@ namespace Eigen {
                 // Ay = I_H^T x
                 // such that y = A^1 I_H^T x,
                 // then multiply by I_H
-                const auto & A = lhs._stiffness_solver;
-                const auto & I_H = lhs._I_H;
+                assert(lhs.isInitialized() && "Must initialize SchurComplement stiffness solver "
+                        "and quasi interpolator before using.");
+
+                const auto & A = lhs.stiffnessSolver();
+                const auto & I_H = lhs.quasiInterpolator();
                 dst = alpha * I_H * A.solve(I_H.transpose() * rhs);
             }
         };

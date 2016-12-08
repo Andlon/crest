@@ -70,9 +70,9 @@ namespace crest
         virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
                 const std::vector<int> & fine_patch_interior,
-                const Eigen::SparseMatrix<Scalar> & local_coarse_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_fine_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
+                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
+                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
+                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
                 int coarse_element) const = 0;
 
     protected:
@@ -92,9 +92,9 @@ namespace crest
         virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
                 const std::vector<int> & fine_patch_interior,
-                const Eigen::SparseMatrix<Scalar> & local_coarse_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_fine_stiffness,
-                const Eigen::SparseMatrix<Scalar> & local_quasi_interpolator,
+                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
+                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
+                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
                 int coarse_element) const override
         {
             (void) local_coarse_stiffness;
@@ -238,7 +238,12 @@ namespace crest
                 const auto A_coarse_local = sparse_submatrix(A_coarse, coarse_patch_interior, coarse_patch_interior);
 
                 const auto corrector_contributions = compute_element_correctors_for_patch(
-                        mesh, fine_patch.interior(), A_coarse_local, A_fine_local, I_H_local, coarse_element);
+                        mesh,
+                        fine_patch.interior(),
+                        std::move(A_coarse_local),
+                        std::move(A_fine_local),
+                        std::move(I_H_local),
+                        coarse_element);
                 std::copy(corrector_contributions.cbegin(),
                           corrector_contributions.cend(),
                           std::back_inserter(basis_triplets));
