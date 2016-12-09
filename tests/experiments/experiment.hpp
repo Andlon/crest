@@ -110,8 +110,10 @@ struct ExperimentInput
 
 struct MeshDetails
 {
-    int num_vertices;
-    int num_elements;
+    int num_coarse_vertices;
+    int num_coarse_elements;
+    int num_fine_vertices;
+    int num_fine_elements;
 };
 
 struct ErrorSummary

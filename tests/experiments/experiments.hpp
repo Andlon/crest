@@ -61,8 +61,10 @@ protected:
         timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
-        mesh_details.num_elements = mesh->num_elements();
-        mesh_details.num_vertices = mesh->num_vertices();
+        mesh_details.num_coarse_elements = mesh->num_elements();
+        mesh_details.num_coarse_vertices = mesh->num_vertices();
+        mesh_details.num_fine_elements = mesh->num_elements();
+        mesh_details.num_fine_vertices = mesh->num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
@@ -151,8 +153,10 @@ protected:
         timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
-        mesh_details.num_vertices = mesh->num_vertices();
-        mesh_details.num_elements = mesh->num_elements();
+        mesh_details.num_coarse_elements = mesh->num_elements();
+        mesh_details.num_coarse_vertices = mesh->num_vertices();
+        mesh_details.num_fine_elements = mesh->num_elements();
+        mesh_details.num_fine_vertices = mesh->num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
@@ -416,8 +420,10 @@ protected:
         }
 
         MeshDetails mesh_details;
-        mesh_details.num_elements = mesh->coarse_mesh().num_elements();
-        mesh_details.num_vertices = mesh->coarse_mesh().num_vertices();
+        mesh_details.num_coarse_elements = mesh->coarse_mesh().num_elements();
+        mesh_details.num_coarse_vertices = mesh->coarse_mesh().num_vertices();
+        mesh_details.num_fine_elements = mesh->fine_mesh().num_elements();
+        mesh_details.num_fine_vertices = mesh->fine_mesh().num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
@@ -471,8 +477,10 @@ protected:
         timing.basis_construction = timer.measure_and_reset();
 
         MeshDetails mesh_details;
-        mesh_details.num_elements = mesh->fine_mesh().num_elements();
-        mesh_details.num_vertices = mesh->fine_mesh().num_vertices();
+        mesh_details.num_coarse_elements = mesh->coarse_mesh().num_elements();
+        mesh_details.num_coarse_vertices = mesh->coarse_mesh().num_vertices();
+        mesh_details.num_fine_elements = mesh->fine_mesh().num_elements();
+        mesh_details.num_fine_vertices = mesh->fine_mesh().num_vertices();
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
