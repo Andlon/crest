@@ -2,41 +2,13 @@
 
 #include <crest/geometry/biscale_mesh.hpp>
 
+#include <Eigen/Dense>
 #include <Eigen/Sparse>
 
 namespace crest
 {
     namespace detail
     {
-        template <typename Scalar>
-        Eigen::SparseMatrix<Scalar>
-        localized_quasi_interpolator(const Eigen::SparseMatrix<Scalar> & global_interpolator,
-                                     const typename BiscaleMesh<Scalar, int>::CoarsePatch & coarse_patch,
-                                     const std::vector<int> & fine_patch_interior)
-        {
-            assert(std::is_sorted(fine_patch_interior.cbegin(), fine_patch_interior.cend()));
-
-            const auto coarse_patch_interior = coarse_patch.interior();
-
-            if (coarse_patch_interior.empty())
-            {
-                return Eigen::SparseMatrix<Scalar>(0, 0);
-            }
-            else
-            {
-                // Here we impose only Dirichlet boundary conditions on the boundary of the patch,
-                // ignoring the constraints imposed by the quasi-interpolator on the boundary.
-                // This isn't theoretically justified, but it's a small perturbation that
-                // seems to work well in practice, and it gives us a localized quasi-interpolator
-                // which has full row rank almost for free.
-                const auto I_H_local = sparse_submatrix(global_interpolator,
-                                                        coarse_patch_interior,
-                                                        fine_patch_interior);
-
-                return I_H_local;
-            }
-        }
-
         template <typename Scalar>
         Eigen::SparseMatrix<Scalar> construct_saddle_point_problem(
                 const Eigen::SparseMatrix<Scalar> & A,
@@ -83,6 +55,25 @@ namespace crest
 
             return C;
         };
+
+        template <typename Scalar>
+        Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> construct_dense_saddle_point_problem(
+                const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & A,
+                const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> & I_H)
+        {
+            const auto n = A.rows();
+            const auto m = I_H.rows();
+
+            assert(n == I_H.cols());
+            assert(n == A.cols());
+
+            Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> C(m + n, m + n);
+            C.topLeftCorner(n, n) = A;
+            C.bottomLeftCorner(m, n) = I_H;
+            C.topRightCorner(n, m) = I_H.transpose();
+            C.bottomRightCorner(m, m) = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(m, m);
+            return C;
+        }
 
         /**
          * Computes the weights of the standard coarse Lagrangian basis functions in the fine space

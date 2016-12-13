@@ -110,6 +110,28 @@ TEST_F(sparse_submatrix_test, dense_5x5_all_indices)
     EXPECT_TRUE(Eigen::MatrixXi(mat).isApprox(expected));
 }
 
+TEST(sparse_submatrix_as_dense_test, dense_5x5_arbitrary_indices)
+{
+    auto dense_5x5 = Eigen::SparseMatrix<int>(5, 5);
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j) {
+            dense_5x5.insert(i, j) = j + 5 * i;
+        }
+    }
+
+    const auto rows = std::vector<int> { 1, 2, 4 };
+    const auto cols = std::vector<int> { 2, 4 };
+    const auto mat = sparse_submatrix_as_dense(dense_5x5, rows, cols);
+
+    Eigen::Matrix<int, 3, 2> expected;
+    expected <<
+             7, 9,
+            12, 14,
+            22, 24;
+
+    EXPECT_TRUE(mat == expected);
+}
+
 TEST_F(submatrix_test, dense_5x5)
 {
     const auto rows = std::vector<int> { 1, 2, 4 };

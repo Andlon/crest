@@ -173,15 +173,26 @@ namespace crest
     class SchurCorrectorSolver : public CorrectorSolver<Scalar>
     {
     public:
-        virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
+        virtual std::vector<Eigen::Triplet<Scalar>> resolve_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
+                const std::vector<int> & coarse_patch_interior,
                 const std::vector<int> & fine_patch_interior,
-                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
-                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
-                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
+                const Eigen::SparseMatrix<Scalar> & global_coarse_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_fine_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_quasi_interpolator,
                 int coarse_element) const override
         {
-            assert(local_fine_stiffness.rows() > 0);
+            const auto I_H = sparse_submatrix(global_quasi_interpolator,
+                                              coarse_patch_interior,
+                                              fine_patch_interior);
+            const auto A_h = sparse_submatrix(global_fine_stiffness,
+                                              fine_patch_interior,
+                                              fine_patch_interior);
+            const auto A_H = sparse_submatrix(global_coarse_stiffness,
+                                              coarse_patch_interior,
+                                              coarse_patch_interior);
+
+            assert(A_h.rows() > 0);
 
             using Eigen::SparseMatrix;
             using Eigen::ConjugateGradient;
@@ -204,9 +215,6 @@ namespace crest
                     SchurComplementCoarseStiffnessPreconditioner<Scalar>> SchurComplementSolver;
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
-            const auto & I_H = local_quasi_interpolator;
-            const auto & A_h = local_fine_stiffness;
-            const auto & A_H = local_coarse_stiffness;
 
             StiffnessSolver stiffness_solver(A_h);
             const auto schur_operator = SchurComplement()

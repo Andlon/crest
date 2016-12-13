@@ -7,6 +7,7 @@
 #include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/basis/homogenized_basis.hpp>
 #include <crest/basis/schur_corrector_solver.hpp>
+#include <crest/basis/homogenized_basis_dense_fallback.hpp>
 
 #include <crest/util/algorithms.hpp>
 
@@ -150,6 +151,12 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_schu
     check_correctors_are_in_interpolator_kernel<crest::SchurCorrectorSolver<double>>();
 }
 
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_sparselu_dense_fallback, ())
+{
+    typedef crest::DenseFallbackCorrectorSolverWrapper<double, crest::SparseLuCorrectorSolver<double>> Wrapper;
+    check_correctors_are_in_interpolator_kernel<Wrapper>();
+}
+
 template <typename CorrectorSolver>
 void check_correctors_are_zero_with_no_refinement()
 {
@@ -180,6 +187,12 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_spa
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_schur, ())
 {
     check_correctors_are_zero_with_no_refinement<crest::SchurCorrectorSolver<double>>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_sparselu_dense_fallback, ())
+{
+    typedef crest::DenseFallbackCorrectorSolverWrapper<double, crest::SparseLuCorrectorSolver<double>> Wrapper;
+    check_correctors_are_zero_with_no_refinement<Wrapper>();
 }
 
 template <typename CorrectorSolver>
@@ -249,6 +262,12 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
 RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_schur, ())
 {
     check_corrected_basis_is_orthogonal_to_fine_space<crest::SchurCorrectorSolver<double>>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_sparselu_dense_fallback, ())
+{
+    typedef crest::DenseFallbackCorrectorSolverWrapper<double, crest::SparseLuCorrectorSolver<double>> Wrapper;
+    check_corrected_basis_is_orthogonal_to_fine_space<Wrapper>();
 }
 
 TEST(standard_coarse_basis_in_fine_space, basic_mesh)

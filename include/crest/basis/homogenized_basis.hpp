@@ -64,6 +64,8 @@ namespace crest
     class CorrectorSolver
     {
     public:
+        typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> DenseMatrix;
+
         virtual ~CorrectorSolver() {}
 
         crest::HomogenizedBasis<Scalar> compute_basis(const BiscaleMesh<Scalar, int> & mesh,
@@ -72,12 +74,13 @@ namespace crest
         Eigen::SparseMatrix<Scalar> compute_correctors(const BiscaleMesh<Scalar, int> & mesh,
                                                        unsigned int oversampling);
 
-        virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
+        virtual std::vector<Eigen::Triplet<Scalar>> resolve_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
+                const std::vector<int> & coarse_patch_interior,
                 const std::vector<int> & fine_patch_interior,
-                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
-                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
-                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
+                const Eigen::SparseMatrix<Scalar> & global_coarse_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_fine_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_quasi_interpolator,
                 int coarse_element) const = 0;
 
         const std::unordered_map<std::string, AccumulatedDensityHistogram> & stats() const;
@@ -93,6 +96,7 @@ namespace crest
         std::unordered_map<std::string, AccumulatedDensityHistogram> _stats;
     };
 
+
     /**
      * The default corrector solver, which uses SparseLU to compute correctors. It is slow, but very robust.
      */
@@ -100,19 +104,26 @@ namespace crest
     class SparseLuCorrectorSolver : public CorrectorSolver<Scalar>
     {
     public:
-        virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
+        virtual std::vector<Eigen::Triplet<Scalar>> resolve_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
+                const std::vector<int> & coarse_patch_interior,
                 const std::vector<int> & fine_patch_interior,
-                Eigen::SparseMatrix<Scalar> local_coarse_stiffness,
-                Eigen::SparseMatrix<Scalar> local_fine_stiffness,
-                Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
+                const Eigen::SparseMatrix<Scalar> & global_coarse_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_fine_stiffness,
+                const Eigen::SparseMatrix<Scalar> & global_quasi_interpolator,
                 int coarse_element) const override
         {
-            (void) local_coarse_stiffness;
+            (void) global_coarse_stiffness;
+
+            const auto I_H = sparse_submatrix(global_quasi_interpolator,
+                                              coarse_patch_interior,
+                                              fine_patch_interior);
+            const auto A = sparse_submatrix(global_fine_stiffness,
+                                            fine_patch_interior,
+                                            fine_patch_interior);
+
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
-            const auto & I_H = local_quasi_interpolator;
-            const auto & A = local_fine_stiffness;
             const auto C = detail::construct_saddle_point_problem(A, I_H);
 
             Eigen::SparseLU<Eigen::SparseMatrix<Scalar>> solver;
@@ -246,19 +257,15 @@ namespace crest
 
             if (!fine_patch_interior.empty())
             {
-                const auto I_H_local = detail::localized_quasi_interpolator(I_H,
-                                                                            coarse_patch,
-                                                                            fine_patch_interior);
-                const auto A_fine_local = sparse_submatrix(A_fine, fine_patch_interior, fine_patch_interior);
-                const auto A_coarse_local = sparse_submatrix(A_coarse, coarse_patch_interior, coarse_patch_interior);
-
-                const auto corrector_contributions = compute_element_correctors_for_patch(
+                const auto corrector_contributions = resolve_element_correctors_for_patch(
                         mesh,
-                        fine_patch.interior(),
-                        std::move(A_coarse_local),
-                        std::move(A_fine_local),
-                        std::move(I_H_local),
+                        coarse_patch_interior,
+                        fine_patch_interior,
+                        A_coarse,
+                        A_fine,
+                        I_H,
                         coarse_element);
+
                 std::copy(corrector_contributions.cbegin(),
                           corrector_contributions.cend(),
                           std::back_inserter(basis_triplets));

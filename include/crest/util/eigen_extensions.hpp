@@ -94,6 +94,46 @@ Eigen::SparseMatrix<Scalar, 0, Index> sparse_submatrix(const Eigen::SparseMatrix
     return submat;
 };
 
+template <typename Scalar, typename Index>
+Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> sparse_submatrix_as_dense(
+        const Eigen::SparseMatrix<Scalar, 0, Index> & matrix,
+        const std::vector<Index> & rows,
+        const std::vector<Index> & cols)
+{
+    typedef typename Eigen::SparseMatrix<Scalar, 0, Index>::InnerIterator InnerIterator;
+    assert(std::is_sorted(rows.cbegin(), rows.cend()) && "Row indices must be sorted.");
+    assert(std::is_sorted(cols.cbegin(), cols.cend()) && "Column indices must be sorted.");
+
+    const auto submat_rows = static_cast<Index>(rows.size());
+    const auto submat_cols = static_cast<Index>(cols.size());
+
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> submat(submat_rows, submat_cols);
+    submat.setZero();
+
+    if (submat_rows > 0)
+    {
+        for (Index col = 0; col < submat.cols(); ++col)
+        {
+            const auto original_col = cols[col];
+            Index current_submat_row = 0;
+
+            InnerIterator it(matrix, original_col);
+
+            for (InnerIterator it(matrix, original_col); it; ++it) {
+                while (current_submat_row < submat_rows && it.row() > rows[current_submat_row]) {
+                    ++current_submat_row;
+                }
+
+                if (current_submat_row < submat_rows && it.row() == rows[current_submat_row]) {
+                    submat(current_submat_row, col) = it.value();
+                }
+            }
+        }
+    }
+
+    return submat;
+};
+
 template <typename Scalar, int Rows, int Cols>
 Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> submatrix(const Eigen::Matrix<Scalar, Rows, Cols> &matrix,
                                                                 const std::vector<int> rows,
