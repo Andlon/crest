@@ -200,10 +200,7 @@ namespace crest
             using detail::SchurComplementCoarseStiffnessPreconditioner;
 
             // Define the type of the solver used to solve the "stiffness problem" Ax = b.
-            typedef ConjugateGradient<
-                    SparseMatrix<Scalar>,
-                    Eigen::Lower|Eigen::Upper,
-                    SimplicialLDLT<SparseMatrix<Scalar>>> StiffnessSolver;
+            typedef SimplicialLDLT<SparseMatrix<Scalar>> StiffnessSolver;
 
             // The SchurComplement uses the StiffnessSolver internally
             typedef detail::SchurComplement<Scalar, StiffnessSolver> SchurComplement;
