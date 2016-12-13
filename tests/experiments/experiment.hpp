@@ -3,6 +3,7 @@
 #include <crest/wave/solver.hpp>
 #include <crest/geometry/indexed_mesh.hpp>
 #include <crest/quadrature/simpsons.hpp>
+#include <crest/util/stat.hpp>
 
 #include <string>
 #include <cmath>
@@ -155,6 +156,8 @@ struct OfflineResult
     MeshDetails mesh_details;
     OfflineTiming timing;
 
+    std::unordered_map<std::string, crest::AccumulatedDensityHistogram> stats;
+
     OfflineResult & with_mesh_details(MeshDetails mesh_details)
     {
         this->mesh_details = mesh_details;
@@ -164,6 +167,12 @@ struct OfflineResult
     OfflineResult & with_timing(OfflineTiming timing)
     {
         this->timing = timing;
+        return *this;
+    }
+
+    OfflineResult & with_stats(std::unordered_map<std::string, crest::AccumulatedDensityHistogram> stats)
+    {
+        this->stats = stats;
         return *this;
     }
 };

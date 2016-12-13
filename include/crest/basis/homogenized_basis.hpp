@@ -7,12 +7,17 @@
 #include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/basis/detail/homogenized_basis_detail.hpp>
 #include <crest/util/eigen_extensions.hpp>
+#include <crest/util/stat.hpp>
+#include <crest/util/timer.hpp>
 
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
 
 #include <set>
 #include <cassert>
+#include <unordered_map>
+
+#include <iostream>
 
 namespace crest
 {
@@ -62,10 +67,10 @@ namespace crest
         virtual ~CorrectorSolver() {}
 
         crest::HomogenizedBasis<Scalar> compute_basis(const BiscaleMesh<Scalar, int> & mesh,
-                                                      unsigned int oversampling) const;
+                                                      unsigned int oversampling);
 
         Eigen::SparseMatrix<Scalar> compute_correctors(const BiscaleMesh<Scalar, int> & mesh,
-                                                       unsigned int oversampling) const;
+                                                       unsigned int oversampling);
 
         virtual std::vector<Eigen::Triplet<Scalar>> compute_element_correctors_for_patch(
                 const BiscaleMesh<Scalar, int> & mesh,
@@ -75,11 +80,17 @@ namespace crest
                 Eigen::SparseMatrix<Scalar> local_quasi_interpolator,
                 int coarse_element) const = 0;
 
+        const std::unordered_map<std::string, AccumulatedDensityHistogram> & stats() const;
+
     protected:
         VectorX<Scalar> local_rhs(const BiscaleMesh<Scalar, int> & mesh,
                                   const std::vector<int> & fine_patch_interior,
                                   int coarse_element,
                                   int local_index) const;
+
+    private:
+        void set_stats(std::unordered_map<std::string, AccumulatedDensityHistogram> stats);
+        std::unordered_map<std::string, AccumulatedDensityHistogram> _stats;
     };
 
     /**
@@ -204,8 +215,10 @@ namespace crest
     template <typename Scalar>
     Eigen::SparseMatrix<Scalar> CorrectorSolver<Scalar>::compute_correctors(
             const BiscaleMesh<Scalar, int> & mesh,
-            unsigned int oversampling) const
+            unsigned int oversampling)
     {
+        AccumulatedDensityHistogramBuilder timing_density;
+
         const auto I_H = quasi_interpolator(mesh);
 
         Eigen::SparseMatrix<Scalar> A_fine(mesh.fine_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
@@ -224,6 +237,8 @@ namespace crest
         std::vector<Eigen::Triplet<Scalar>> basis_triplets;
         for (int coarse_element = 0; coarse_element < mesh.coarse_mesh().num_elements(); ++coarse_element)
         {
+            Timer element_patch_timer;
+
             const auto coarse_patch = mesh.coarse_element_patch(coarse_element, oversampling);
             const auto coarse_patch_interior = coarse_patch.interior();
             const auto fine_patch = mesh.fine_patch_from_coarse(coarse_patch);
@@ -248,7 +263,13 @@ namespace crest
                           corrector_contributions.cend(),
                           std::back_inserter(basis_triplets));
             }
+
+            timing_density.add_sample(static_cast<double>(fine_patch_interior.size()), element_patch_timer.elapsed());
         }
+
+        std::unordered_map<std::string, AccumulatedDensityHistogram> stats;
+        stats["timing_distribution"] = timing_density.build();
+        set_stats(stats);
 
         Eigen::SparseMatrix<Scalar> basis(mesh.coarse_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
         basis.setFromTriplets(basis_triplets.cbegin(), basis_triplets.cend());
@@ -257,12 +278,25 @@ namespace crest
 
     template <typename Scalar>
     HomogenizedBasis<Scalar> CorrectorSolver<Scalar>::compute_basis(const BiscaleMesh<Scalar, int> & mesh,
-                                                                    unsigned int oversampling) const
+                                                                    unsigned int oversampling)
     {
         const auto corrector_weights = compute_correctors(mesh, oversampling);
         const auto lagrange_basis_weights = detail::standard_coarse_basis_in_fine_space(mesh);
         const auto basis_weights = lagrange_basis_weights - corrector_weights;
         return HomogenizedBasis<Scalar>(mesh, basis_weights);
+    }
+
+    template <typename Scalar>
+    const std::unordered_map<std::string, AccumulatedDensityHistogram> &
+    CorrectorSolver<Scalar>::stats() const
+    {
+        return _stats;
+    };
+
+    template <typename Scalar>
+    void CorrectorSolver<Scalar>::set_stats(std::unordered_map<std::string, AccumulatedDensityHistogram> stats)
+    {
+        _stats = stats;
     }
 
     template <typename Scalar>

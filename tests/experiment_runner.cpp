@@ -23,6 +23,33 @@ using std::endl;
 using std::cerr;
 using std::setw;
 
+auto sampled_data_summary_as_json(const crest::AccumulatedDensityHistogram & histogram)
+{
+    nlohmann::json j;
+    auto & hist = j["distribution"];
+    for (const auto & bin : histogram)
+    {
+        hist.push_back({
+                               { "lower", bin.lower_bound() },
+                               { "upper", bin.upper_bound() },
+                               { "accumulated", bin.accumulated() }
+                       });
+    }
+
+    return j;
+}
+
+auto stats_as_json(const std::unordered_map<std::string, crest::AccumulatedDensityHistogram> & stats)
+{
+    nlohmann::json j;
+    for (const auto pair : stats)
+    {
+        j[pair.first] = sampled_data_summary_as_json(pair.second);
+    }
+
+    return j;
+}
+
 auto experiment_result_as_json(const ExperimentResult & result)
 {
     using nlohmann::json;
@@ -50,7 +77,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                                                             { "mesh_construction", offline_timing.mesh_construction },
                                                                             { "basis_construction", offline_timing.basis_construction },
                                                                             { "total", offline_timing.total }
-                                                                    }}
+                                                                    }},
+                                                        { "stats", stats_as_json(result.offline_result.stats) }
                                                 }}
                             }}
     };

@@ -405,10 +405,12 @@ protected:
 
         timing.mesh_construction = timer.measure_and_reset();
 
+        auto corrector_solver = CorrectorSolver();
+
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
                 ? std::make_unique<const Basis>(
-                        std::move(CorrectorSolver().compute_basis(*mesh, oversampling)))
+                        std::move(corrector_solver.compute_basis(*mesh, oversampling)))
                 : std::make_unique<const Basis>(
                         std::move(crest::import_basis(*mesh, parameters.basis_import_file)));
 
@@ -427,7 +429,8 @@ protected:
 
         return OfflineResult()
                 .with_mesh_details(mesh_details)
-                .with_timing(timing);
+                .with_timing(timing)
+                .with_stats(corrector_solver.stats());
     }
 
     virtual OnlineResult solve_online(const OnlineParameters & parameters,

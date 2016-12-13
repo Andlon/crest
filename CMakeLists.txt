@@ -12,6 +12,7 @@ set(UNIT_TEST_SOURCES
         tests/unit/basis/quasi_interpolation.cpp
         tests/unit/basis/homogenized_basis.cpp
         tests/unit/util/eigen_extensions.cpp
+        tests/unit/util/stat.cpp
         tests/unit/geometry/refinement.cpp
         tests/unit/quadrature/simpsons.cpp
         tests/unit/geometry/mesh_algorithms.cpp
