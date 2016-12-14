@@ -8,6 +8,7 @@
 #include <crest/basis/homogenized_basis.hpp>
 #include <crest/basis/schur_corrector_solver.hpp>
 #include <crest/basis/homogenized_basis_dense_fallback.hpp>
+#include <crest/basis/amg_corrector_solver.hpp>
 
 #include <crest/util/algorithms.hpp>
 
@@ -157,6 +158,11 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_spar
     check_correctors_are_in_interpolator_kernel<Wrapper>();
 }
 
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_amg, ())
+{
+    check_correctors_are_in_interpolator_kernel<crest::AmgCorrectorSolver<double>>();
+}
+
 template <typename CorrectorSolver>
 void check_correctors_are_zero_with_no_refinement()
 {
@@ -193,6 +199,11 @@ RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_spa
 {
     typedef crest::DenseFallbackCorrectorSolverWrapper<double, crest::SparseLuCorrectorSolver<double>> Wrapper;
     check_correctors_are_zero_with_no_refinement<Wrapper>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_amg, ())
+{
+    check_correctors_are_zero_with_no_refinement<crest::AmgCorrectorSolver<double>>();
 }
 
 template <typename CorrectorSolver>
@@ -268,6 +279,11 @@ RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_spac
 {
     typedef crest::DenseFallbackCorrectorSolverWrapper<double, crest::SparseLuCorrectorSolver<double>> Wrapper;
     check_corrected_basis_is_orthogonal_to_fine_space<Wrapper>();
+}
+
+RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_amg, ())
+{
+    check_corrected_basis_is_orthogonal_to_fine_space<crest::AmgCorrectorSolver<double>>();
 }
 
 TEST(standard_coarse_basis_in_fine_space, basic_mesh)

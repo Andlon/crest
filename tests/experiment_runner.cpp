@@ -5,6 +5,7 @@
 #include <crest/basis/lagrange_basis2d.hpp>
 #include <crest/geometry/refinement.hpp>
 #include <crest/quadrature/simpsons.hpp>
+#include <crest/basis/amg_corrector_solver.hpp>
 
 #include <experiments/experiments.hpp>
 
@@ -133,6 +134,8 @@ std::unique_ptr<Experiment> make_experiment(const std::string & name)
         return std::make_unique<HomogenizedLShaped<crest::SparseLuCorrectorSolver<double>>>();
     } else if (name == "homogenized_l_shaped_schur") {
         return std::make_unique<HomogenizedLShaped<crest::SchurCorrectorSolver<double>>>();
+    } else if (name == "homogenized_l_shaped_amg") {
+        return std::make_unique<HomogenizedLShaped<crest::AmgCorrectorSolver<double>>>();
     } else if (name == "standard_l_shaped") {
         return std::make_unique<StandardLShaped>();
     } else {

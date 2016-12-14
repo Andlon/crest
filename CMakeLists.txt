@@ -44,6 +44,9 @@ include_directories(SYSTEM GTEST_ROOT/include)
 # This should normally only be used by Travis. Lets us use Eigen by simply copying files into external/include/Eigen
 include_directories(SYSTEM external/include)
 
+# Make AMGCL availble. This is slightly suboptimal, as we make all files in amgcl part of the include process
+include_directories(SYSTEM external/amgcl)
+
 # Add rapidcheck for writing property-based tests
 add_subdirectory("external/rapidcheck")
 
