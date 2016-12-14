@@ -163,7 +163,7 @@ void check_correctors_are_zero_with_no_refinement()
     const auto oversampling = static_cast<unsigned int>(*rc::gen::inRange(0, 6));
     const auto mesh = *crest::gen::arbitrary_unit_square_mesh();
     const auto biscale = crest::BiscaleMesh<double, int>(mesh, mesh);
-    const auto correctors = crest::SparseLuCorrectorSolver<double>().compute_correctors(biscale, oversampling);
+    const auto correctors = CorrectorSolver().compute_correctors(biscale, oversampling);
     ASSERT_THAT(correctors.rows(), Eq(mesh.num_vertices()));
     ASSERT_THAT(correctors.cols(), Eq(mesh.num_vertices()));
 
@@ -229,7 +229,7 @@ void check_corrected_basis_is_orthogonal_to_fine_space()
     const auto fine_basis = LagrangeBasis2d<double>(fine);
 
     const auto oversampling = static_cast<unsigned int>(coarse.num_vertices());
-    const auto basis_weights = crest::SparseLuCorrectorSolver<double>()
+    const auto basis_weights = CorrectorSolver()
             .compute_basis(biscale, oversampling).basis_weights();
     const auto basis_interior_weights = sparse_submatrix(basis_weights, coarse_interior, fine_interior);
 
