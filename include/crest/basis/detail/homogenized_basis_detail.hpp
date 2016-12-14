@@ -44,7 +44,7 @@ namespace crest
                 {
                     const auto row = it.row() + A.rows();
                     const auto col = it.col();
-                    triplets.push_back(Eigen::Triplet<Scalar>(row, col, it.value()));
+                    triplets.push_back(Eigen::Triplet<Scalar>(row, col, - it.value()));
                     // Also add the transposed element, to bring I_H^T to the top-right corner
                     triplets.push_back(Eigen::Triplet<Scalar>(col, row, it.value()));
                 }

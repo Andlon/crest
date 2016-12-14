@@ -38,11 +38,11 @@ namespace crest
             Eigen::Index cols() const { return stiffness().cols() + quasi_interpolator().cols(); }
 
         private:
-            Eigen::SparseMatrix<Scalar, Eigen::RowMajor> _stiffness;
-            Eigen::SparseMatrix<Scalar, Eigen::RowMajor> _quasi_interpolator;
+            Matrix _stiffness;
+            Matrix _quasi_interpolator;
         };
 
-        template <class Scalar>
+        template <typename Scalar>
         class CorrectorBlockMatrixIdentityPreconditioner
         {
         public:
@@ -81,20 +81,93 @@ namespace crest
             const matrix * _matrix;
         };
 
-//        template <typename StiffnessPreconditioner>
-//        class CorrectorBlockPreconditioner {
-//        public:
-//
-//        };
+        template <typename Scalar, typename StiffnessPreconditioner>
+        class CorrectorBlockPreconditioner {
+        public:
+            typedef amgcl::backend::eigen<Scalar> Backend;
+            typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> SparseMatrix;
+
+            typedef Backend backend_type;
+            typedef CorrectorBlockMatrix<Scalar> matrix;
+            typedef typename Backend::vector vector;
+            typedef typename Backend::value_type value_type;
+
+            typedef typename Backend::params backend_params;
+
+            struct params
+            {
+                const SparseMatrix * schur_inverse_approx;
+
+                params() : schur_inverse_approx(nullptr) {}
+            };
+
+            template <class Matrix>
+            CorrectorBlockPreconditioner(
+                    const Matrix & M,
+                    const params & prm = params(),
+                    const backend_params & bprm = backend_params())
+                    : _matrix(&M),
+                      _stiffness_preconditioner(M.stiffness()),
+                      _schur_inverse_approx(prm.schur_inverse_approx),
+                      v(M.stiffness().rows()),
+                      w(M.quasi_interpolator().rows()),
+                      z(M.stiffness().rows()),
+                      y(M.stiffness().rows()),
+                      S_inv_w(M.quasi_interpolator().rows()),
+                      corrector_buffer(M.stiffness().rows())
+            {
+                (void) bprm;
+                const auto & I_H = M.quasi_interpolator();
+                const auto & S_inv = *_schur_inverse_approx;
+                I_H_transpose_S_inv = I_H.transpose() * S_inv;
+            }
+
+            template <class Vec1, class Vec2>
+            void apply(const Vec1 & rhs, Vec2 & x) const
+            {
+                amgcl::backend::clear(x);
+
+//                const auto & I_H = _matrix->quasi_interpolator();
+                const auto & S_inv = *_schur_inverse_approx;
+                const auto n = _matrix->stiffness().rows();
+                const auto m = _matrix->quasi_interpolator().rows();
+
+                v = rhs.topRows(n);
+                w = rhs.bottomRows(m);
+                S_inv_w = S_inv * w;
+                z = I_H_transpose_S_inv * w;
+                y = v - z;
+
+                _stiffness_preconditioner.apply(y, corrector_buffer);
+                x.topRows(n) = corrector_buffer;
+                x.bottomRows(m) = S_inv_w;
+            }
+
+            const matrix & system_matrix() const
+            {
+                return *_matrix;
+            }
+
+        private:
+            const matrix * _matrix;
+            StiffnessPreconditioner _stiffness_preconditioner;
+            const SparseMatrix * _schur_inverse_approx;
+
+            // Buffers used to avoid unnecessary allocation
+            mutable VectorX<Scalar> v;
+            mutable VectorX<Scalar> w;
+            mutable VectorX<Scalar> z;
+            mutable VectorX<Scalar> y;
+            mutable VectorX<Scalar> S_inv_w;
+            mutable VectorX<Scalar> corrector_buffer;
+            mutable SparseMatrix I_H_transpose_S_inv;
+        };
     }
 }
 
 
 namespace crest
 {
-
-
-
     template <typename Scalar>
     class AmgCorrectorSolver : public CorrectorSolver<Scalar>
     {
@@ -108,30 +181,40 @@ namespace crest
                 const Eigen::SparseMatrix<Scalar> & global_quasi_interpolator,
                 int coarse_element) const override
         {
-            const auto I_H = sparse_submatrix(global_quasi_interpolator,
-                                              coarse_patch_interior,
-                                              fine_patch_interior);
-            const auto A_h = sparse_submatrix(global_fine_stiffness,
-                                              fine_patch_interior,
-                                              fine_patch_interior);
-            const auto A_H = sparse_submatrix(global_coarse_stiffness,
-                                              coarse_patch_interior,
-                                              coarse_patch_interior);
+            typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> RowMajorMatrix;
+            const RowMajorMatrix I_H = sparse_submatrix(global_quasi_interpolator,
+                                                        coarse_patch_interior,
+                                                        fine_patch_interior);
+            const RowMajorMatrix A_h = sparse_submatrix(global_fine_stiffness,
+                                                        fine_patch_interior,
+                                                        fine_patch_interior);
+            const RowMajorMatrix A_H = sparse_submatrix(global_coarse_stiffness,
+                                                        coarse_patch_interior,
+                                                        coarse_patch_interior);
 
             assert(A_h.rows() > 0);
             const auto m = I_H.rows();
 
             typedef amgcl::backend::eigen<Scalar> Backend;
-            typedef detail::CorrectorBlockMatrixIdentityPreconditioner<Scalar> StiffnessPreconditioner;
-            typedef amgcl::solver::gmres<Backend> IterativeSolver;
-            typedef amgcl::make_solver<StiffnessPreconditioner, IterativeSolver> Solver;
+
+            typedef amgcl::amg<
+                    Backend,
+                    amgcl::coarsening::smoothed_aggregation,
+                    amgcl::relaxation::spai0
+            > StiffnessPreconditioner;
+
+            typedef detail::CorrectorBlockPreconditioner<Scalar, StiffnessPreconditioner> BlockPreconditioner;
+            typedef amgcl::solver::lgmres<Backend> IterativeSolver;
+            typedef amgcl::make_solver<BlockPreconditioner, IterativeSolver> Solver;
 
             std::vector<Eigen::Triplet<Scalar>> triplets;
 
             detail::CorrectorBlockMatrix<Scalar> C(std::move(A_h), std::move(I_H));
 
             typename Solver::params params;
+            params.precond.schur_inverse_approx = &A_H;
             params.solver.tol = std::numeric_limits<Scalar>::epsilon();
+            params.solver.pside = amgcl::precond::right;
             Solver solver(C, params);
 
             for (int i = 0; i < 3; ++i)
@@ -201,12 +284,12 @@ namespace amgcl
                 {
                     y = beta * y;
                     y.topRows(n) += alpha * A * x.topRows(n) + alpha * I_H.transpose() * x.bottomRows(m);
-                    y.bottomRows(m) += alpha * I_H * x.bottomRows(m);
+                    y.bottomRows(m) += - alpha * I_H * x.bottomRows(m);
                 } else
                 {
                     // mat * x
                     y.topRows(n) = alpha * A * x.topRows(n) + alpha * I_H.transpose() * x.bottomRows(m);
-                    y.bottomRows(m) = alpha * I_H * x.topRows(n);
+                    y.bottomRows(m) = - alpha * I_H * x.topRows(n);
                 }
             }
         };
