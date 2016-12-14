@@ -18,14 +18,14 @@ namespace crest
     class DenseFallbackCorrectorSolverWrapper : public CorrectorSolver<Scalar>
     {
     private:
-        size_t _threshold;
+        unsigned int _threshold;
         SparseCorrectorSolver _wrapped;
     public:
         SparseCorrectorSolver & solver() { return _wrapped; }
         const SparseCorrectorSolver & solver() const { return _wrapped; }
 
-        size_t threshold() const { return _threshold; }
-        void set_threshold(size_t threshold) { _threshold = threshold; }
+        unsigned int threshold() const { return _threshold; }
+        void set_threshold(unsigned int threshold) { _threshold = threshold; }
 
         template <typename ... Args>
         DenseFallbackCorrectorSolverWrapper(Args && ... args)

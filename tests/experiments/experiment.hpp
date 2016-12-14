@@ -18,9 +18,12 @@ struct OfflineParameters
     std::string basis_export_file;
     std::string basis_import_file;
 
+    unsigned int dense_fallback_threshold;
+
     OfflineParameters()
             : oversampling(0),
-              mesh_resolution(0.0)
+              mesh_resolution(0.0),
+              dense_fallback_threshold(300)
     { }
 
     OfflineParameters & with_oversampling(unsigned int oversampling)
@@ -44,6 +47,12 @@ struct OfflineParameters
     OfflineParameters & with_basis_import_file(std::string path)
     {
         this->basis_import_file = path;
+        return *this;
+    }
+
+    OfflineParameters & with_dense_fallback_threshold(unsigned int threshold)
+    {
+        this->dense_fallback_threshold = threshold;
         return *this;
     }
 };

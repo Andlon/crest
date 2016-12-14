@@ -12,6 +12,7 @@
 #include <crest/quadrature/simpsons.hpp>
 #include <crest/io/homogenized_basis_io.hpp>
 #include <crest/basis/schur_corrector_solver.hpp>
+#include <crest/basis/homogenized_basis_dense_fallback.hpp>
 
 #include <memory>
 
@@ -405,7 +406,8 @@ protected:
 
         timing.mesh_construction = timer.measure_and_reset();
 
-        auto corrector_solver = CorrectorSolver();
+        auto corrector_solver = crest::DenseFallbackCorrectorSolverWrapper<double, CorrectorSolver>();
+        corrector_solver.set_threshold(parameters.dense_fallback_threshold);
 
         const auto oversampling = parameters.oversampling;
         basis = parameters.basis_import_file.empty()
