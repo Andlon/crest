@@ -225,6 +225,8 @@ namespace crest
 //            params.solver.tol = 1e-9; //std::numeric_limits<Scalar>::epsilon();
             params.solver.tol = std::numeric_limits<Scalar>::epsilon();
             params.solver.pside = amgcl::precond::right;
+            params.solver.always_reset = true;
+            params.solver.store_Av = false;
             Solver solver(C, params);
 
             for (int i = 0; i < 3; ++i)
