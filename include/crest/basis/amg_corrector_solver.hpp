@@ -12,6 +12,10 @@
 #include <amgcl/solver/lgmres.hpp>
 #include <amgcl/make_solver.hpp>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace crest
 {
     namespace detail
@@ -177,6 +181,13 @@ namespace crest
                 const Eigen::SparseMatrix<Scalar> & global_quasi_interpolator,
                 int coarse_element) const override
         {
+            // We actually DON'T want to use multiple threads in this instance,
+            // in order to get a fair comparison with other schemes.
+#ifdef _OPENMP
+            const auto num_threads = omp_get_max_threads();
+            omp_set_num_threads(1);
+#endif
+
             typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> RowMajorMatrix;
             const RowMajorMatrix I_H = sparse_submatrix(global_quasi_interpolator,
                                                         coarse_patch_interior,
@@ -244,6 +255,12 @@ namespace crest
                     }
                 }
             }
+
+            // It's crucical that we restore the number of threads used by OpenMP upon exit. Note that this
+            // isn't exception safe (would have to use some RAII wrapper instead).
+#ifdef _OPENMP
+            omp_set_num_threads(num_threads);
+#endif
 
             return triplets;
         }
