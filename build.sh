@@ -1,8 +1,8 @@
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-mkdir $SCRIPTDIR/target
-mkdir $SCRIPTDIR/target/debug
-mkdir $SCRIPTDIR/target/release
+mkdir -p $SCRIPTDIR/target
+mkdir -p $SCRIPTDIR/target/debug
+mkdir -p $SCRIPTDIR/target/release
 
 printf "Building debug binaries\n"
 printf "***********************\n"
