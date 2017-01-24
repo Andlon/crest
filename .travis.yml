@@ -27,7 +27,7 @@ env:
 
 before_install:
   # Install Eigen by copying header files to a system include directory
-  - wget -q http://bitbucket.org/eigen/eigen/get/3.3.1.tar.bz2
+  - wget -q http://bitbucket.org/eigen/eigen/get/3.3.2.tar.bz2
   - tar -xf 3.3.2.tar.bz2
   - cd eigen-eigen*
   # Abuse the fact that BUILD_DIR/include/ is an include directory
