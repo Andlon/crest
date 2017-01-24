@@ -318,10 +318,10 @@ namespace crest
 
             // Due to change of variables, we have to left-apply J^-T
             const Eigen::Matrix<Scalar, 2, 2> J_inv_t = transform.jacobian().inverse().transpose();
-            assert(isfinite(J_inv_t(0, 0)));
-            assert(isfinite(J_inv_t(1, 0)));
-            assert(isfinite(J_inv_t(0, 1)));
-            assert(isfinite(J_inv_t(1, 1)));
+            assert(std::isfinite(J_inv_t(0, 0)));
+            assert(std::isfinite(J_inv_t(1, 0)));
+            assert(std::isfinite(J_inv_t(0, 1)));
+            assert(std::isfinite(J_inv_t(1, 1)));
             const Eigen::Matrix<Scalar, 2, 1> f_h_grad_ref_transformed = J_inv_t * f_h_grad_ref;
 
             // Computes the square of the difference of grad(f) and grad(f_h)
