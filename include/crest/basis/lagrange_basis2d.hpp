@@ -317,7 +317,7 @@ namespace crest
                               w2 * basis2_y;
 
             // Due to change of variables, we have to left-apply J^-T
-            const auto J_inv_t = transform.jacobian().inverse().transpose();
+            const Eigen::Matrix<Scalar, 2, 2> J_inv_t = transform.jacobian().inverse().transpose();
             const Eigen::Matrix<Scalar, 2, 1> f_h_grad_ref_transformed = J_inv_t * f_h_grad_ref;
 
             // Computes the square of the difference of grad(f) and grad(f_h)
