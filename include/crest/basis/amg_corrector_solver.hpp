@@ -10,11 +10,7 @@
 #include <amgcl/relaxation/spai0.hpp>
 #include <amgcl/backend/eigen.hpp>
 #include <amgcl/solver/lgmres.hpp>
-#include <amgcl/solver/gmres.hpp>
-#include <amgcl/solver/fgmres.hpp>
-#include <amgcl/preconditioner/dummy.hpp>
 #include <amgcl/make_solver.hpp>
-#include <amgcl/adapter/crs_tuple.hpp>
 
 namespace crest
 {
@@ -96,6 +92,7 @@ namespace crest
 
             struct params
             {
+                typename StiffnessPreconditioner::params stiffness_precond_params;
                 const SparseMatrix * schur_inverse_approx;
 
                 params() : schur_inverse_approx(nullptr) {}
@@ -127,7 +124,6 @@ namespace crest
             {
                 amgcl::backend::clear(x);
 
-//                const auto & I_H = _matrix->quasi_interpolator();
                 const auto & S_inv = *_schur_inverse_approx;
                 const auto n = _matrix->stiffness().rows();
                 const auto m = _matrix->quasi_interpolator().rows();
@@ -136,11 +132,11 @@ namespace crest
                 w = rhs.bottomRows(m);
                 S_inv_w = S_inv * w;
                 z = I_H_transpose_S_inv * w;
-                y = v - z;
+                y = v + z;
 
                 _stiffness_preconditioner.apply(y, corrector_buffer);
                 x.topRows(n) = corrector_buffer;
-                x.bottomRows(m) = S_inv_w;
+                x.bottomRows(m) = - S_inv_w;
             }
 
             const matrix & system_matrix() const
@@ -213,6 +209,9 @@ namespace crest
 
             typename Solver::params params;
             params.precond.schur_inverse_approx = &A_H;
+//            params.precond.stiffness_precond_params.coarse_enough = 1000;
+            // TODO: Make parameters configurable
+//            params.solver.tol = 1e-9; //std::numeric_limits<Scalar>::epsilon();
             params.solver.tol = std::numeric_limits<Scalar>::epsilon();
             params.solver.pside = amgcl::precond::right;
             Solver solver(C, params);
@@ -227,7 +226,9 @@ namespace crest
                 VectorX<Scalar> rhs(C.rows());
                 rhs << b, VectorX<Scalar>::Zero(m);
 
-                solver(rhs, sol);
+                int    iters;
+                double error;
+                boost::tie(iters, error) = solver(rhs, sol);
 
                 const auto global_index = mesh.coarse_mesh().elements()[coarse_element].vertex_indices[i];
                 for (size_t k = 0; k < fine_patch_interior.size(); ++k)
@@ -284,12 +285,12 @@ namespace amgcl
                 {
                     y = beta * y;
                     y.topRows(n) += alpha * A * x.topRows(n) + alpha * I_H.transpose() * x.bottomRows(m);
-                    y.bottomRows(m) += - alpha * I_H * x.bottomRows(m);
+                    y.bottomRows(m) += alpha * I_H * x.topRows(n);
                 } else
                 {
                     // mat * x
                     y.topRows(n) = alpha * A * x.topRows(n) + alpha * I_H.transpose() * x.bottomRows(m);
-                    y.bottomRows(m) = - alpha * I_H * x.topRows(n);
+                    y.bottomRows(m) = alpha * I_H * x.topRows(n);
                 }
             }
         };
