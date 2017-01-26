@@ -220,10 +220,8 @@ namespace crest
 
             typename Solver::params params;
             params.precond.schur_inverse_approx = &A_H;
-//            params.precond.stiffness_precond_params.coarse_enough = 1000;
             // TODO: Make parameters configurable
-//            params.solver.tol = 1e-9; //std::numeric_limits<Scalar>::epsilon();
-            params.solver.tol = std::numeric_limits<Scalar>::epsilon();
+            params.solver.tol = 1e-12;
             params.solver.pside = amgcl::precond::right;
             params.solver.always_reset = true;
             params.solver.store_Av = false;
