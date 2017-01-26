@@ -122,7 +122,7 @@ protected:
         ic.u0_tt_h = basis->interpolate(u0_tt);
 
         const auto load = crest::wave::make_dynamic_basis_load_provider(f, *basis, parameters.load_quadrature_strength);
-        const auto bc = crest::wave::HomogeneousDirichletBC<double>::assemble(*basis, *load);
+        const auto bc = crest::wave::HomogeneousDirichletBC<double>::assemble(*basis, *load, basis->assemble());
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters, *basis, ic, bc, integrator, initializer);
@@ -227,7 +227,7 @@ protected:
 
         const auto load = crest::wave::make_dynamic_basis_load_provider(f, *basis, parameters.load_quadrature_strength);
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load, basis->assemble(), g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters, *basis, ic, bc, integrator, initializer);
@@ -467,7 +467,7 @@ protected:
         }
 
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load_provider, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load_provider, basis->assemble(), g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters,
@@ -524,7 +524,7 @@ protected:
 
         const auto load = crest::wave::make_dynamic_basis_load_provider(f, *basis, parameters.load_quadrature_strength);
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load, basis->assemble(), g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters,
