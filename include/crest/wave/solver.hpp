@@ -81,7 +81,7 @@ namespace crest
 
             const auto dt = parameters.dt;
             inspect_timing(timing.integrator_setup_time, [&] {
-                integrator.setup(dt, system.stiffness(), system.mass());
+                integrator.setup(dt, system.assembly().stiffness, system.assembly().mass);
             });
 
             VectorX<Scalar> x_prev = constrained_ic.u0_h;

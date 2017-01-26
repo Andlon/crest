@@ -3,6 +3,8 @@
 #include <crest/util/eigen_extensions.hpp>
 #include <crest/util/algorithms.hpp>
 
+#include <crest/basis/basis.hpp>
+
 #include <crest/wave/load.hpp>
 
 #include <cassert>
@@ -16,11 +18,10 @@ namespace crest
         public:
             virtual ~ConstrainedSystem() {}
 
-            int num_free_nodes() const { return _stiffness.rows(); }
+            int num_free_nodes() const { return _assembly.stiffness.rows(); }
             int num_total_nodes() const { return _num_total; }
 
-            const Eigen::SparseMatrix<Scalar> & stiffness() const { return _stiffness; }
-            const Eigen::SparseMatrix<Scalar> & mass() const { return _mass; }
+            const Assembly<Scalar> & assembly() const { return _assembly; }
 
             virtual VectorX<Scalar> expand_solution(Scalar t, const VectorX<Scalar> & constrained) const = 0;
             virtual VectorX<Scalar> constrain_solution(const VectorX<Scalar> & full) const = 0;
@@ -30,16 +31,14 @@ namespace crest
             virtual VectorX<Scalar> load(Scalar t) const = 0;
 
         protected:
-            explicit ConstrainedSystem(Eigen::SparseMatrix<Scalar> stiffness,
-                                       Eigen::SparseMatrix<Scalar> mass,
+            explicit ConstrainedSystem(Assembly<Scalar> assembly,
                                        int num_total_nodes)
-                    : _stiffness(stiffness), _mass(mass), _num_total(num_total_nodes)
+                    : _assembly(std::move(assembly)), _num_total(num_total_nodes)
             { }
 
 
         private:
-            Eigen::SparseMatrix<Scalar> _stiffness;
-            Eigen::SparseMatrix<Scalar> _mass;
+            Assembly<Scalar> _assembly;
             int _num_total;
         };
 
@@ -87,29 +86,28 @@ namespace crest
 
             template <typename BasisImpl>
             static HomogeneousDirichletBC<Scalar> assemble(const Basis<Scalar, BasisImpl> & basis,
-                                                           const LoadProvider<Scalar> & load_provider)
+                                                           const LoadProvider<Scalar> & load_provider,
+                                                           const Assembly<Scalar> & assembly)
             {
                 const auto interior = basis.interior_nodes();
-                const auto assembly = basis.assemble();
                 const auto num_total = basis.num_dof();
 
-                const auto stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
-                const auto mass = sparse_submatrix(assembly.mass, interior, interior);
+                Assembly<Scalar> constrained_assembly;
+                constrained_assembly.stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
+                constrained_assembly.mass = sparse_submatrix(assembly.mass, interior, interior);
 
-                return HomogeneousDirichletBC(std::move(stiffness),
-                                              std::move(mass),
+                return HomogeneousDirichletBC(std::move(constrained_assembly),
                                               load_provider,
                                               std::move(interior),
                                               num_total);
             }
 
         private:
-            explicit HomogeneousDirichletBC(Eigen::SparseMatrix<Scalar> stiffness,
-                                            Eigen::SparseMatrix<Scalar> mass,
+            explicit HomogeneousDirichletBC(Assembly<Scalar> assembly,
                                             const LoadProvider<Scalar> & load_provider,
                                             std::vector<int> interior,
                                             int num_total_nodes)
-                    : ConstrainedSystem<Scalar>(stiffness, mass, num_total_nodes),
+                    : ConstrainedSystem<Scalar>(std::move(assembly), num_total_nodes),
                       _load_provider(load_provider),
                       _interior(interior)
             { }
@@ -180,8 +178,8 @@ namespace crest
                 const auto unconstrained_load = _load_provider.compute(t);
                 const auto constrained_load = submatrix(unconstrained_load, _interior, { 0 });
 
-                const auto & A_b = _boundary_stiffness;
-                const auto & M_b = _boundary_mass;
+                const auto & A_b = _boundary_assembly.stiffness;
+                const auto & M_b = _boundary_assembly.mass;
                 const auto & b = constrained_load;
                 const auto & beta = g_h_boundary_weights;
                 const auto & beta_tt = g_h_tt_boundary_weights;
@@ -192,22 +190,23 @@ namespace crest
             static InhomogeneousDirichletBC<Scalar, BasisImpl, Function2d, Function2d_tt>
             assemble(const Basis<Scalar, BasisImpl> & basis,
                      const LoadProvider<Scalar> & load_provider,
+                     const Assembly<Scalar> & assembly,
                      const Function2d & boundary_func,
                      const Function2d_tt & boundary_func_second_derivative)
             {
                 const auto interior = basis.interior_nodes();
                 const auto boundary = basis.boundary_nodes();
-                const auto assembly = basis.assemble();
 
-                const auto stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
-                const auto mass = sparse_submatrix(assembly.mass, interior, interior);
-                const auto boundary_stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
-                const auto boundary_mass = sparse_submatrix(assembly.mass, interior, boundary);
+                Assembly<Scalar> constrained_assembly;
+                constrained_assembly.stiffness = sparse_submatrix(assembly.stiffness, interior, interior);
+                constrained_assembly.mass = sparse_submatrix(assembly.mass, interior, interior);
 
-                return InhomogeneousDirichletBC(std::move(stiffness),
-                                                std::move(mass),
-                                                std::move(boundary_stiffness),
-                                                std::move(boundary_mass),
+                Assembly<Scalar> boundary_assembly;
+                boundary_assembly.stiffness = sparse_submatrix(assembly.stiffness, interior, boundary);
+                boundary_assembly.mass = sparse_submatrix(assembly.mass, interior, boundary);
+
+                return InhomogeneousDirichletBC(std::move(constrained_assembly),
+                                                std::move(boundary_assembly),
                                                 basis,
                                                 load_provider,
                                                 std::move(interior),
@@ -217,23 +216,20 @@ namespace crest
             }
 
         private:
-            explicit InhomogeneousDirichletBC(Eigen::SparseMatrix<Scalar> stiffness,
-                                              Eigen::SparseMatrix<Scalar> mass,
-                                              Eigen::SparseMatrix<Scalar> boundary_stiffness,
-                                              Eigen::SparseMatrix<Scalar> boundary_mass,
+            explicit InhomogeneousDirichletBC(Assembly<Scalar> assembly,
+                                              Assembly<Scalar> boundary_assembly,
                                               const Basis<Scalar, BasisImpl> & basis,
                                               const LoadProvider<Scalar> & load_provider,
                                               std::vector<int> interior,
                                               std::vector<int> boundary,
                                               const Function2d & boundary_function,
                                               const Function2d_tt & boundary_func_tt)
-                    : ConstrainedSystem<Scalar>(stiffness, mass, static_cast<int>(interior.size() + boundary.size())),
+                    : ConstrainedSystem<Scalar>(std::move(assembly), static_cast<int>(interior.size() + boundary.size())),
                       _basis(basis),
                       _load_provider(load_provider),
                       _interior(interior),
                       _boundary(boundary),
-                      _boundary_stiffness(boundary_stiffness),
-                      _boundary_mass(boundary_mass),
+                      _boundary_assembly(std::move(boundary_assembly)),
                       _boundary_func(boundary_function),
                       _boundary_func_tt(boundary_func_tt)
             { }
@@ -243,8 +239,7 @@ namespace crest
             std::vector<int> _interior;
             std::vector<int> _boundary;
 
-            Eigen::SparseMatrix<Scalar> _boundary_stiffness;
-            Eigen::SparseMatrix<Scalar> _boundary_mass;
+            Assembly<Scalar> _boundary_assembly;
             const Function2d & _boundary_func;
             const Function2d_tt & _boundary_func_tt;
         };
@@ -253,11 +248,12 @@ namespace crest
         InhomogeneousDirichletBC<Scalar, BasisImpl, Function2d, Function2d_tt>
         make_inhomogeneous_dirichlet(const Basis<Scalar, BasisImpl> & basis,
                                      const LoadProvider<Scalar> & load_provider,
+                                     const Assembly<Scalar> & assembly,
                                      const Function2d & boundary_func,
                                      const Function2d_tt & boundary_func_second_derivative)
         {
             return InhomogeneousDirichletBC<Scalar, BasisImpl, Function2d, Function2d_tt>::assemble(
-                    basis, load_provider, boundary_func, boundary_func_second_derivative);
+                    basis, load_provider, assembly, boundary_func, boundary_func_second_derivative);
         };
     }
 }
