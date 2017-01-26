@@ -136,14 +136,13 @@ namespace crest
                     full(full_index) = reduced(i);
                 }
 
-                // As noted in load(), interpolating over the entire basis is a bit of a waste here. TODO: Fix this!
                 const auto g_h = [this, t] (auto x, auto y) { return _boundary_func(t, x, y); };
-                const auto g_h_weights = _basis.interpolate(g_h);
+                const auto g_h_weights = _basis.interpolate_boundary(g_h);
 
                 for (int i = 0; i < num_boundary; ++i)
                 {
                     const auto full_index = _boundary[i];
-                    full(full_index) = g_h_weights(full_index);
+                    full(full_index) = g_h_weights(i);
                 }
 
                 return full;
@@ -164,16 +163,11 @@ namespace crest
 
             virtual VectorX<Scalar> load(Scalar t) const override
             {
-                // Denote the boundary function interpolated in the entire domain as g_h. Doing this wastes a lot of
-                // computation, but with the current Basis API, this is the best we can do. TODO: Improve this.
                 const auto g_h = [this, t] (auto x, auto y) { return _boundary_func(t, x, y); };
                 const auto g_h_tt = [this, t] (auto x, auto y) { return _boundary_func_tt(t, x, y); };
 
-                const auto g_h_weights = _basis.interpolate(g_h);
-                const auto g_h_boundary_weights = submatrix(g_h_weights, _boundary, { 0 });
-
-                const auto g_h_tt_weights = _basis.interpolate(g_h_tt);
-                const auto g_h_tt_boundary_weights = submatrix(g_h_tt_weights, _boundary, { 0 });
+                const auto g_h_boundary_weights = _basis.interpolate_boundary(g_h);
+                const auto g_h_tt_boundary_weights = _basis.interpolate_boundary(g_h_tt);
 
                 const auto unconstrained_load = _load_provider.compute(t);
                 const auto constrained_load = submatrix(unconstrained_load, _interior, { 0 });

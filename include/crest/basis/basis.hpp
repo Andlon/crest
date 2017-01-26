@@ -57,6 +57,16 @@ namespace crest
             return static_cast<const Impl *>(this)->interpolate<Function2d>(f);
         }
 
+        /*
+         * Given a continuous function g, evaluate the function at each boundary node
+         * and return a vector of weights.
+         */
+        template <typename Function2d>
+        VectorX<Scalar> interpolate_boundary(const Function2d &f) const
+        {
+            return static_cast<const Impl *>(this)->interpolate_boundary<Function2d>(f);
+        }
+
         /**
          * Computes the L2 inner product of a continuous function f
          * and every basis function b_i for every degree of freedom i.

@@ -32,6 +32,9 @@ namespace crest
         template <typename Function2d>
         VectorX<Scalar> interpolate(const Function2d &f) const;
 
+        template <typename Function2d>
+        VectorX<Scalar> interpolate_boundary(const Function2d &f) const;
+
         template <int QuadStrength, typename Function2d>
         VectorX<Scalar> load(const Function2d &f) const;
 
@@ -208,6 +211,22 @@ namespace crest
         for (int i = 0; i < _mesh.num_vertices(); ++i)
         {
             const auto vertex = _mesh.vertices()[i];
+            result(i) = f(vertex.x, vertex.y);
+        }
+        return result;
+    }
+
+    template <typename Scalar>
+    template <typename Function2d>
+    VectorX<Scalar> LagrangeBasis2d<Scalar>::interpolate_boundary(const Function2d & f) const
+    {
+        // Simple nodal interpolation
+        auto result = VectorX<Scalar>(_mesh.num_boundary_vertices());
+        const auto & boundary_indices = _mesh.boundary_vertices();
+        for (int i = 0; i < _mesh.num_boundary_vertices(); ++i)
+        {
+            const auto vertex_index = boundary_indices[i];
+            const auto vertex = _mesh.vertices()[vertex_index];
             result(i) = f(vertex.x, vertex.y);
         }
         return result;

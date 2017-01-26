@@ -39,6 +39,9 @@ namespace crest
         template <typename Function2d>
         VectorX<Scalar> interpolate(const Function2d & f) const;
 
+        template <typename Function2d>
+        VectorX<Scalar> interpolate_boundary(const Function2d & f) const;
+
         template <int QuadStrength, typename Function2d>
         VectorX<Scalar> load(const Function2d & f) const;
 
@@ -342,11 +345,18 @@ namespace crest
     template <typename Function2d>
     VectorX<Scalar> HomogenizedBasis<Scalar>::interpolate(const Function2d & f) const
     {
-        // A slightly more accuracte way of interpolating would perhaps be to interpolate the function
+        // A slightly more accurate way of interpolating would perhaps be to interpolate the function
         // in the fine space, and then quasi-interpolate it to weights in the coarse space.
         // However, it seems this has some unfortunate effects on the implementation of inhomogeneous
         // Dirichlet boundary conditions?
         return LagrangeBasis2d<Scalar>(_mesh.coarse_mesh()).interpolate(f);
+    }
+
+    template <typename Scalar>
+    template <typename Function2d>
+    VectorX<Scalar> HomogenizedBasis<Scalar>::interpolate_boundary(const Function2d & f) const
+    {
+        return LagrangeBasis2d<Scalar>(_mesh.fine_mesh()).interpolate_boundary(f);
     }
 
     template <typename Scalar>
