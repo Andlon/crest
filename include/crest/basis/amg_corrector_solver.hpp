@@ -221,7 +221,7 @@ namespace crest
             typename Solver::params params;
             params.precond.schur_inverse_approx = &A_H;
             // TODO: Make parameters configurable
-            params.solver.tol = 1e-12;
+            params.solver.tol = 1e-14;
             params.solver.pside = amgcl::precond::right;
             params.solver.always_reset = true;
             params.solver.store_Av = false;
