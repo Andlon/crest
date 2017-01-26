@@ -466,8 +466,19 @@ protected:
             );
         }
 
+        const auto assemble = [&] () {
+            auto assembly = basis->assemble();
+            if (parameters.use_coarse_mass_matrix) {
+                // Due to the design of assembly, we are unfortunately assembling matrices we will not use here.
+                // TODO: Separate mass and stiffness matrix assembly
+                const auto coarse_assembly = coarse_basis.assemble();
+                assembly.mass = std::move(coarse_assembly.mass);
+            }
+            return assembly;
+        };
+
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load_provider, basis->assemble(), g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load_provider, assemble(), g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters,

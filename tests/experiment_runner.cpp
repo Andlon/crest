@@ -95,7 +95,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                         { "sample_count", result.online_parameters->sample_count },
                                         { "integrator", result.online_parameters->integrator_name },
                                         { "load_quadrature_strength", result.online_parameters->load_quadrature_strength },
-                                        { "use_coarse_rhs", result.online_parameters->use_coarse_rhs }
+                                        { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
+                                        { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix }
                                 }},
                 { "result", {
                                         { "error_summary", {
@@ -222,6 +223,10 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
 
     if (const auto use_coarse_rhs = extract_optional_field(online_json, "use_coarse_rhs")) {
         parameters.use_coarse_rhs = *use_coarse_rhs;
+    }
+
+    if (const auto use_coarse_mass_matrix = extract_optional_field(online_json, "use_coarse_mass_matrix")) {
+        parameters.use_coarse_mass_matrix = *use_coarse_mass_matrix;
     }
 
     return parameters;

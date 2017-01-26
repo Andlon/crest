@@ -63,11 +63,16 @@ struct OnlineParameters
     uint64_t sample_count;
     int load_quadrature_strength;
     bool use_coarse_rhs;
+    bool use_coarse_mass_matrix;
 
     std::string integrator_name;
 
     OnlineParameters()
-            : end_time(0.0), sample_count(0), load_quadrature_strength(4), use_coarse_rhs(false)
+            : end_time(0.0),
+              sample_count(0),
+              load_quadrature_strength(4),
+              use_coarse_rhs(false),
+              use_coarse_mass_matrix(false)
     {}
 
     OnlineParameters & with_end_time(double end_time)
@@ -91,6 +96,12 @@ struct OnlineParameters
     OnlineParameters & with_coarse_rhs(bool use_coarse_rhs)
     {
         this->use_coarse_rhs = use_coarse_rhs;
+        return *this;
+    }
+
+    OnlineParameters & with_coarse_mass_matrix(bool use_coarse_mass_matrix)
+    {
+        this->use_coarse_mass_matrix = use_coarse_mass_matrix;
         return *this;
     }
 
