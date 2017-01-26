@@ -443,9 +443,31 @@ protected:
         ic.v0_h = basis->interpolate(v0);
         ic.u0_tt_h = basis->interpolate(u0_tt);
 
-        const auto load = crest::wave::make_dynamic_basis_load_provider(f, *basis, parameters.load_quadrature_strength);
+        // Note that coarse_basis must outlive solve_and_analyze
+        const crest::LagrangeBasis2d<double> coarse_basis(mesh->coarse_mesh());
+        std::unique_ptr<crest::wave::LoadProvider<double>> load_provider;
+
+        if (parameters.use_coarse_rhs)
+        {
+            load_provider = std::move(
+                    crest::wave::make_dynamic_basis_load_provider(f,
+                                                                  coarse_basis,
+                                                                  parameters.load_quadrature_strength
+                    )
+            );
+        }
+        else
+        {
+            load_provider = std::move(
+                    crest::wave::make_dynamic_basis_load_provider(f,
+                                                                  *basis,
+                                                                  parameters.load_quadrature_strength
+                    )
+            );
+        }
+
         // TODO: Fix this factory function mess. Generalize it.
-        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load, g, g_tt);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(*basis, *load_provider, g, g_tt);
         const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
 
         return solve_and_analyze(u, u_x, u_y, parameters,

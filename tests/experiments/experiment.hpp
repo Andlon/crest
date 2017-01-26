@@ -62,11 +62,12 @@ struct OnlineParameters
     double end_time;
     uint64_t sample_count;
     int load_quadrature_strength;
+    bool use_coarse_rhs;
 
     std::string integrator_name;
 
     OnlineParameters()
-            : end_time(0.0), sample_count(0), load_quadrature_strength(4)
+            : end_time(0.0), sample_count(0), load_quadrature_strength(4), use_coarse_rhs(false)
     {}
 
     OnlineParameters & with_end_time(double end_time)
@@ -84,6 +85,12 @@ struct OnlineParameters
     OnlineParameters & with_integrator_name(std::string name)
     {
         this->integrator_name = name;
+        return *this;
+    }
+
+    OnlineParameters & with_coarse_rhs(bool use_coarse_rhs)
+    {
+        this->use_coarse_rhs = use_coarse_rhs;
         return *this;
     }
 
