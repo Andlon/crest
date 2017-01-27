@@ -218,8 +218,7 @@ namespace crest
                     .withQuasiInterpolator(I_H)
                     .withStiffness(A_h, stiffness_solver);
             SchurComplementSolver schur_solver;
-            // TODO: Make e.g. tolerance configurable
-//            schur_solver.setTolerance(1e-9);
+            schur_solver.setTolerance(CorrectorSolver<Scalar>::iterative_tolerance());
             schur_solver.preconditioner().setCoarseStiffnessMatrix(A_H);
             schur_solver.compute(schur_operator);
 

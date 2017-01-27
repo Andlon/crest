@@ -66,7 +66,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                                             { "oversampling", result.offline_parameters.oversampling },
                                                             { "basis_import_file", result.offline_parameters.basis_import_file },
                                                             { "basis_export_file", result.offline_parameters.basis_export_file },
-                                                            { "dense_fallback_threshold", result.offline_parameters.dense_fallback_threshold }
+                                                            { "dense_fallback_threshold", result.offline_parameters.dense_fallback_threshold },
+                                                            { "iterative_tolerance", result.offline_parameters.iterative_tolerance }
                                                     }},
                                     { "result", {
                                                         { "mesh_details", {
@@ -207,6 +208,9 @@ OfflineParameters parse_offline_parameters(const nlohmann::json & offline_json) 
     }
     if (const auto threshold = extract_optional_field(offline_json, "dense_fallback_threshold")) {
         offline.dense_fallback_threshold = *threshold;
+    }
+    if (const auto iterative_tolerance = extract_optional_field(offline_json, "iterative_tolerance")) {
+        offline.iterative_tolerance = *iterative_tolerance;
     }
     return offline;
 }

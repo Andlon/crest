@@ -88,7 +88,12 @@ namespace crest
 
         const std::unordered_map<std::string, AccumulatedDensityHistogram> & stats() const;
 
+        void set_iterative_tolerance(Scalar tol) { _tol = tol; }
+        Scalar iterative_tolerance() const { return _tol; }
+
     protected:
+        explicit CorrectorSolver<Scalar>() : _tol(Scalar(10) * std::numeric_limits<Scalar>::epsilon()) {}
+
         VectorX<Scalar> local_rhs(const BiscaleMesh<Scalar, int> & mesh,
                                   const std::vector<int> & fine_patch_interior,
                                   int coarse_element,
@@ -97,6 +102,7 @@ namespace crest
     private:
         void set_stats(std::unordered_map<std::string, AccumulatedDensityHistogram> stats);
         std::unordered_map<std::string, AccumulatedDensityHistogram> _stats;
+        Scalar _tol;
     };
 
 

@@ -19,11 +19,13 @@ struct OfflineParameters
     std::string basis_import_file;
 
     unsigned int dense_fallback_threshold;
+    double iterative_tolerance;
 
     OfflineParameters()
             : oversampling(0),
               mesh_resolution(0.0),
-              dense_fallback_threshold(300)
+              dense_fallback_threshold(300),
+              iterative_tolerance(10.0 * std::numeric_limits<double>::epsilon())
     { }
 
     OfflineParameters & with_oversampling(unsigned int oversampling)
@@ -53,6 +55,12 @@ struct OfflineParameters
     OfflineParameters & with_dense_fallback_threshold(unsigned int threshold)
     {
         this->dense_fallback_threshold = threshold;
+        return *this;
+    }
+
+    OfflineParameters & with_iterative_tolerance(double iterative_tolerance)
+    {
+        this->iterative_tolerance = iterative_tolerance;
         return *this;
     }
 };

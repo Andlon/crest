@@ -407,6 +407,7 @@ protected:
         timing.mesh_construction = timer.measure_and_reset();
 
         auto corrector_solver = crest::DenseFallbackCorrectorSolverWrapper<double, CorrectorSolver>();
+        corrector_solver.solver().set_iterative_tolerance(parameters.iterative_tolerance);
         corrector_solver.set_threshold(parameters.dense_fallback_threshold);
 
         const auto oversampling = parameters.oversampling;

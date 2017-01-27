@@ -220,9 +220,8 @@ namespace crest
 
             typename Solver::params params;
             params.precond.schur_inverse_approx = &A_H;
-            // TODO: Make parameters configurable
-            params.solver.tol = Scalar(10) * std::numeric_limits<Scalar>::epsilon();
-            params.solver.abstol = Scalar(10) * std::numeric_limits<Scalar>::epsilon();
+            params.solver.tol = CorrectorSolver<Scalar>::iterative_tolerance();
+            params.solver.abstol = CorrectorSolver<Scalar>::iterative_tolerance();
             params.solver.pside = amgcl::precond::right;
             params.solver.always_reset = true;
             params.solver.store_Av = false;
