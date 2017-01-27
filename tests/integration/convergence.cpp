@@ -24,10 +24,13 @@ class inhomogeneous_unit_square : public ::testing::TestWithParam<std::tuple<Int
 
 };
 
+constexpr double TOL = 1e-9;
+
 TEST_P(homogeneous_unit_square, order_of_convergence)
 {
     auto test_params = GetParam();
     auto integrator = std::get<0>(test_params);
+    integrator->set_tolerance(TOL);
     const auto expected_result = std::get<1>(test_params);
     auto experiment = HomogeneousDirichletUnitSquare();
     experiment.run_offline(expected_result.offline_parameters);
@@ -43,6 +46,7 @@ TEST_P(inhomogeneous_unit_square, order_of_convergence)
 {
     auto test_params = GetParam();
     auto integrator = std::get<0>(test_params);
+    integrator->set_tolerance(TOL);
     const auto expected_result = std::get<1>(test_params);
 
     auto experiment = InhomogeneousDirichletUnitSquare();
