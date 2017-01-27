@@ -108,6 +108,7 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                                                   { "l2", errors.l2 }
                                                           }},
                                         { "timing", {
+                                                                { "assembly_time", timing.assembly_time },
                                                                 { "load_time", timing.load_time },
                                                                 { "initializer_time", timing.initializer_time },
                                                                 { "integrator_setup_time", timing.integrator_setup_time },

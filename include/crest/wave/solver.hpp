@@ -32,6 +32,7 @@ namespace crest
         }
 
         struct SolveTiming {
+            double assembly_time;
             double load_time;
             double initializer_time;
             double integrator_setup_time;
@@ -39,7 +40,8 @@ namespace crest
             double transform_time;
             double total_time;
 
-            SolveTiming() : load_time(0.0),
+            SolveTiming() : assembly_time(NAN),
+                            load_time(0.0),
                             initializer_time(0.0),
                             integrator_setup_time(0.0),
                             integrator_solve_time(0.0),

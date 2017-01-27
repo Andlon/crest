@@ -341,7 +341,8 @@ protected:
                                    const crest::wave::InitialConditions<double> & initial_conditions,
                                    const crest::wave::ConstrainedSystem<double> & system,
                                    crest::wave::Integrator<double> & integrator,
-                                   const crest::wave::Initializer<double> & initializer) const
+                                   const crest::wave::Initializer<double> & initializer,
+                                   double assembly_time) const
     {
         const auto dt = parameters.dt();
         const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
@@ -349,8 +350,12 @@ protected:
         crest::wave::Parameters<double> param;
         param.num_samples = parameters.sample_count;
         param.dt = dt;
-        const auto result = crest::wave::solve(system, initial_conditions,
+        auto result = crest::wave::solve(system, initial_conditions,
                                                integrator, initializer, param, error_transformer);
+
+        // Augment the result with the given assembly time. Yes, I know, this is very hacky and
+        // very poorly designed (last minute additions)
+        result.timing.assembly_time = assembly_time;
 
         std::vector<double> l2_error_at_each_step;
         std::vector<double> h1_semi_error_at_each_step;
