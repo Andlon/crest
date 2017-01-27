@@ -34,6 +34,12 @@ namespace crest
         public:
             virtual ~Integrator() {}
 
+            /**
+             * Tolerance for iterative solver if the integrator uses an iterative solver, otherwise ignored.
+             */
+            void set_tolerance(Scalar tol) { _tol = tol; }
+            Scalar tolerance() const { return _tol; }
+
             virtual void setup(Scalar dt, Eigen::SparseMatrix<Scalar> stiffness, Eigen::SparseMatrix<Scalar> mass) = 0;
 
             virtual VectorX<Scalar> next(int step_index,
@@ -43,6 +49,12 @@ namespace crest
                                          const VectorX<Scalar> & load_next,
                                          const VectorX<Scalar> & load_current,
                                          const VectorX<Scalar> & load_previous) = 0;
+
+        protected:
+            Integrator() : _tol(Scalar(10) * std::numeric_limits<Scalar>::epsilon()) {}
+
+        private:
+            Scalar _tol;
         };
 
         /**
@@ -128,9 +140,7 @@ namespace crest
 
                 // Eigen's Conjugate gradient applies diagonal preconditioning by default
                 _cg.compute(C);
-
-                // TODO: Make this configurable
-                _cg.setTolerance(1e-9);
+                _cg.setTolerance(Integrator<Scalar>::tolerance());
             }
 
             virtual VectorX<Scalar> next(int step_index,
@@ -184,9 +194,7 @@ namespace crest
 
                 // Eigen's Conjugate gradient applies diagonal preconditioning by default
                 _cg.compute(_mass);
-
-                // TODO: Make this configurable
-                _cg.setTolerance(1e-9);
+                _cg.setTolerance(Integrator<Scalar>::tolerance());
             }
 
             virtual VectorX<Scalar> next(int step_index,

@@ -97,7 +97,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                         { "integrator", result.online_parameters->integrator_name },
                                         { "load_quadrature_strength", result.online_parameters->load_quadrature_strength },
                                         { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
-                                        { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix }
+                                        { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix },
+                                        { "iterative_tolerance", result.online_parameters->iterative_tolerance }
                                 }},
                 { "result", {
                                         { "error_summary", {
@@ -233,6 +234,10 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
         parameters.use_coarse_mass_matrix = *use_coarse_mass_matrix;
     }
 
+    if (const auto iterative_tol = extract_optional_field(online_json, "iterative_tolerance")) {
+        parameters.iterative_tolerance = *iterative_tol;
+    }
+
     return parameters;
 }
 
@@ -269,6 +274,7 @@ int main(int, char **)
             auto integrator = make_integrator(online_param->integrator_name);
 
             if (integrator) {
+                integrator->set_tolerance(online_param->iterative_tolerance);
                 online_result = experiment->run_online(*online_param, *integrator);
             } else {
                 throw std::runtime_error("Unknown integrator requested.");
