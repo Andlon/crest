@@ -31,6 +31,8 @@ using crest::LagrangeBasis2d;
 typedef IndexedMesh<double, int>::Vertex Vertex;
 typedef IndexedMesh<double, int>::Element Element;
 
+constexpr static double TOL = 1e-14;
+
 TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold_fine_mesh)
 {
     // Recall that by definition, I_H c = 0, for any corrector with weights c.
@@ -68,7 +70,7 @@ TEST(homogenized_basis_test, correctors_are_in_interpolator_kernel_for_threshold
     const Eigen::SparseMatrix<double> Z = I_H_interior * correctors.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
-    EXPECT_TRUE(Z_dense.isZero(1e-12));
+    EXPECT_TRUE(Z_dense.isZero(TOL));
 }
 
 TEST(construct_saddle_point_problem_test, blockwise_correct)
@@ -139,7 +141,7 @@ void check_correctors_are_in_interpolator_kernel()
     const Eigen::SparseMatrix<double> Z = I_H_interior * correctors.transpose();
     const Eigen::MatrixXd Z_dense = Z;
 
-    RC_ASSERT(Z_dense.isZero(1e-12));
+    RC_ASSERT(Z_dense.isZero(TOL));
 }
 
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_in_interpolator_kernel_sparselu, ())
@@ -182,7 +184,7 @@ void check_correctors_are_zero_with_no_refinement()
         }
     }
 
-    RC_ASSERT(max_abs < 1e-12);
+    RC_ASSERT(max_abs < TOL);
 }
 
 RC_GTEST_PROP(homogenized_basis_test, correctors_are_zero_with_no_refinement_sparselu, ())
@@ -262,7 +264,7 @@ void check_corrected_basis_is_orthogonal_to_fine_space()
     RC_LOG() << "N:   " << std::endl << N << std::endl << std::endl;
     RC_LOG() << "WAN: " << std::endl << product << std::endl << std::endl;
 
-    RC_ASSERT(product.isZero(1e-12));
+    RC_ASSERT(product.isZero(TOL));
 }
 
 RC_GTEST_PROP(homogenized_basis_test, corrected_basis_is_orthogonal_to_fine_space_sparselu, ())
@@ -356,5 +358,5 @@ RC_GTEST_PROP(standard_coarse_basis_in_fine_space, quasi_interpolation_recovers_
     // We could have had a shaper tolerance here, but it appears Eigen does not do an elementwise comparison
     // for isIdentity (which is very annoying, by the way), as it can spuriously fail even when all non-diagonal
     // elements are smaller than 3e-16.
-    RC_ASSERT(interpolated_dense.isIdentity(1e-12));
+    RC_ASSERT(interpolated_dense.isIdentity(TOL));
 }
