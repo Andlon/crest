@@ -111,20 +111,6 @@ namespace crest
     };
 
     template <typename Scalar, typename Index, typename Tag>
-    Patch<Scalar, Index, Tag> patch_union(const Patch<Scalar, Index, Tag> & left,
-                                          const Patch<Scalar, Index, Tag> & right)
-    {
-        // TODO: Implement this
-    }
-
-    template <typename Scalar, typename Index, typename Tag>
-    Patch<Scalar, Index, Tag> patch_difference(const Patch<Scalar, Index, Tag> & left,
-                                               const Patch<Scalar, Index, Tag> & right)
-    {
-        // TODO: Implement this
-    }
-
-    template <typename Scalar, typename Index, typename Tag>
     std::vector<Index> Patch<Scalar, Index, Tag>::vertices() const
     {
         std::vector<Index> vertices_in_patch;
