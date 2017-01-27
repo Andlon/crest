@@ -226,6 +226,7 @@ struct OnlineResult
 {
     ErrorSummary error_summary;
     OnlineTiming timing;
+    bool converged;
 
     OnlineResult & with_error_summary(ErrorSummary summary)
     {
@@ -238,6 +239,14 @@ struct OnlineResult
         this->timing = timing;
         return *this;
     }
+
+    OnlineResult & with_convergence(bool converged)
+    {
+        this->converged = converged;
+        return *this;
+    }
+
+    OnlineResult() : converged(false) {}
 };
 
 struct ExperimentResult
@@ -380,7 +389,8 @@ protected:
 
         return OnlineResult()
                 .with_error_summary(errors)
-                .with_timing(result.timing);
+                .with_timing(result.timing)
+                .with_convergence(result.converged);
     };
 };
 

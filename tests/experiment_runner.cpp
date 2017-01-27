@@ -101,19 +101,20 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                         { "iterative_tolerance", result.online_parameters->iterative_tolerance }
                                 }},
                 { "result", {
+                                        { "converged", result.online_result->converged },
                                         { "error_summary", {
-                                                              { "h1", errors.h1 },
-                                                              { "h1_semi", errors.h1_semi },
-                                                              { "l2", errors.l2 }
-                                                      }},
+                                                                  { "h1", errors.h1 },
+                                                                  { "h1_semi", errors.h1_semi },
+                                                                  { "l2", errors.l2 }
+                                                          }},
                                         { "timing", {
-                                                                  { "load_time", timing.load_time },
-                                                                  { "initializer_time", timing.initializer_time },
-                                                                  { "integrator_setup_time", timing.integrator_setup_time },
-                                                                  { "integrator_solve_time", timing.integrator_solve_time },
-                                                                  { "transform_time", timing.transform_time },
-                                                                  { "total_time", timing.total_time }
-                                                          }}
+                                                                { "load_time", timing.load_time },
+                                                                { "initializer_time", timing.initializer_time },
+                                                                { "integrator_setup_time", timing.integrator_setup_time },
+                                                                { "integrator_solve_time", timing.integrator_solve_time },
+                                                                { "transform_time", timing.transform_time },
+                                                                { "total_time", timing.total_time }
+                                                        }}
                                 }}
 
         };

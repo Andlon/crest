@@ -10,6 +10,11 @@ namespace crest
 {
     namespace wave
     {
+        class ConvergenceError : std::runtime_error {
+        public:
+            explicit ConvergenceError(const std::string & what) : std::runtime_error(what) {}
+        };
+
         template <typename Scalar>
         struct InitialConditions
         {
@@ -111,8 +116,7 @@ namespace crest
 
                 if (_c_factor.info() != Eigen::Success)
                 {
-                    // TODO Throw appropriate exception?
-                    throw std::logic_error("Did not converge.");
+                    throw ConvergenceError("Integration did not converge.");
                 }
                 return x_next;
             }
@@ -166,8 +170,7 @@ namespace crest
 
                 if (_cg.info() != Eigen::Success)
                 {
-                    // TODO Throw appropriate exception?
-                    throw std::logic_error("Did not converge.");
+                    throw ConvergenceError("Integration did not converge.");
                 }
                 return x_next;
             }
@@ -221,8 +224,7 @@ namespace crest
 
                 if (_cg.info() != Eigen::Success)
                 {
-                    // TODO Throw appropriate exception?
-                    throw std::logic_error("Did not converge.");
+                    throw ConvergenceError("Integration did not converge.");
                 }
                 return x_next;
             }
