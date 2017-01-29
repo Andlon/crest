@@ -98,7 +98,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                         { "load_quadrature_strength", result.online_parameters->load_quadrature_strength },
                                         { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
                                         { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix },
-                                        { "iterative_tolerance", result.online_parameters->iterative_tolerance }
+                                        { "iterative_tolerance", result.online_parameters->iterative_tolerance },
+                                        { "measure_error", result.online_parameters->measure_error }
                                 }},
                 { "result", {
                                         { "converged", result.online_result->converged },
@@ -238,6 +239,10 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
 
     if (const auto iterative_tol = extract_optional_field(online_json, "iterative_tolerance")) {
         parameters.iterative_tolerance = *iterative_tol;
+    }
+
+    if (const auto measure_error = extract_optional_field(online_json, "measure_error")) {
+        parameters.measure_error = *measure_error;
     }
 
     return parameters;

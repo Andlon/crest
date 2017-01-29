@@ -35,6 +35,20 @@ namespace crest
             Scalar h1_semi;
         };
 
+        struct IgnoredResult {};
+
+        /**
+         * An implementation of a ResultTransformer that simply ignores its result. An example of a possible
+         * use case is when one wants to measure the execution time of the solver without measuring the error.
+         * @tparam Scalar
+         */
+        template <typename Scalar>
+        class IgnoreTransformer : public ResultTransformer<Scalar, IgnoredResult>
+        {
+        public:
+            virtual IgnoredResult transform(uint64_t, Scalar, const VectorX<Scalar> &) const { return IgnoredResult(); }
+        };
+
         template <int QuadStrength, typename Scalar, typename BasisImpl,
                 typename Function2dt, typename Function2dt_x, typename Function2dt_y>
         class ErrorTransformer : public ResultTransformer<Scalar, ErrorSample<Scalar>>

@@ -73,6 +73,7 @@ struct OnlineParameters
     bool use_coarse_rhs;
     bool use_coarse_mass_matrix;
     double iterative_tolerance;
+    bool measure_error;
 
     std::string integrator_name;
 
@@ -82,7 +83,8 @@ struct OnlineParameters
               load_quadrature_strength(4),
               use_coarse_rhs(false),
               use_coarse_mass_matrix(false),
-              iterative_tolerance(10.0 * std::numeric_limits<double>::epsilon())
+              iterative_tolerance(10.0 * std::numeric_limits<double>::epsilon()),
+              measure_error(true)
     {}
 
     OnlineParameters & with_end_time(double end_time)
@@ -118,6 +120,12 @@ struct OnlineParameters
     OnlineParameters & with_iterative_tolerance(double iterative_tolerance)
     {
         this->iterative_tolerance = iterative_tolerance;
+        return *this;
+    }
+
+    OnlineParameters & with_error_measurement(bool measure_error)
+    {
+        this->measure_error = measure_error;
         return *this;
     }
 
@@ -345,57 +353,69 @@ protected:
                                    double assembly_time) const
     {
         const auto dt = parameters.dt();
-        const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
-
         crest::wave::Parameters<double> param;
         param.num_samples = parameters.sample_count;
         param.dt = dt;
-        auto result = crest::wave::solve(system, initial_conditions,
-                                               integrator, initializer, param, error_transformer);
 
-        // Augment the result with the given assembly time. Yes, I know, this is very hacky and
-        // very poorly designed (last minute additions)
-        result.timing.assembly_time = assembly_time;
+        if (parameters.measure_error) {
+            const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
+            auto result = crest::wave::solve(system, initial_conditions,
+                                             integrator, initializer, param, error_transformer);
 
-        std::vector<double> l2_error_at_each_step;
-        std::vector<double> h1_semi_error_at_each_step;
-        std::vector<double> h1_error_at_each_step;
+            // Augment the result with the given assembly time. Yes, I know, this is very hacky and
+            // very poorly designed (last minute additions)
+            result.timing.assembly_time = assembly_time;
 
-        for (const auto sample_error : result.result)
-        {
-            l2_error_at_each_step.push_back(sample_error.l2);
-            h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
-            h1_error_at_each_step.push_back(sample_error.h1);
-        }
+            std::vector<double> l2_error_at_each_step;
+            std::vector<double> h1_semi_error_at_each_step;
+            std::vector<double> h1_error_at_each_step;
 
-        ErrorSummary errors;
+            for (const auto sample_error : result.result)
+            {
+                l2_error_at_each_step.push_back(sample_error.l2);
+                h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
+                h1_error_at_each_step.push_back(sample_error.h1);
+            }
 
-        switch (param.num_samples) {
-            case 1:
-                errors.h1 = h1_error_at_each_step.back();
-                errors.l2 = l2_error_at_each_step.back();
-                errors.h1_semi = h1_semi_error_at_each_step.back();
-                break;
+            ErrorSummary errors;
 
-            default:
-                // TODO: Support even number of samples. Simpsons will currently throw when it
-                // is given an even number of samples
-                errors.l2 = crest::composite_simpsons(l2_error_at_each_step.begin(),
-                                                      l2_error_at_each_step.end(),
-                                                      dt);
-                errors.h1_semi = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
-                                                           h1_semi_error_at_each_step.end(),
-                                                           dt);
-                errors.h1 = crest::composite_simpsons(h1_error_at_each_step.begin(),
-                                                      h1_error_at_each_step.end(),
-                                                      dt);
-                break;
-        }
+            switch (param.num_samples) {
+                case 1:
+                    errors.h1 = h1_error_at_each_step.back();
+                    errors.l2 = l2_error_at_each_step.back();
+                    errors.h1_semi = h1_semi_error_at_each_step.back();
+                    break;
 
-        return OnlineResult()
-                .with_error_summary(errors)
-                .with_timing(result.timing)
-                .with_convergence(result.converged);
+                default:
+                    // TODO: Support even number of samples. Simpsons will currently throw when it
+                    // is given an even number of samples
+                    errors.l2 = crest::composite_simpsons(l2_error_at_each_step.begin(),
+                                                          l2_error_at_each_step.end(),
+                                                          dt);
+                    errors.h1_semi = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
+                                                               h1_semi_error_at_each_step.end(),
+                                                               dt);
+                    errors.h1 = crest::composite_simpsons(h1_error_at_each_step.begin(),
+                                                          h1_error_at_each_step.end(),
+                                                          dt);
+                    break;
+            }
+
+            return OnlineResult()
+                    .with_error_summary(errors)
+                    .with_timing(result.timing)
+                    .with_convergence(result.converged);
+        } else {
+            const auto ignore_transformer = crest::wave::IgnoreTransformer<double>();
+            auto result = crest::wave::solve(system, initial_conditions, integrator,
+                                                   initializer, param, ignore_transformer);
+            // Augment the result with the given assembly time. Yes, I know, this is very hacky and
+            // very poorly designed (last minute additions)
+            result.timing.assembly_time = assembly_time;
+            return OnlineResult()
+                    .with_timing(result.timing)
+                    .with_convergence(result.converged);
+        };
     };
 };
 
