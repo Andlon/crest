@@ -545,3 +545,58 @@ protected:
                                  *basis, ic, bc, integrator, initializer, assembly_time);
     }
 };
+
+class QuasiUniformStandardLShaped final : public LShapedBase
+{
+private:
+    typedef crest::IndexedMesh<double, int> Mesh;
+    typedef crest::LagrangeBasis2d<double>  Basis;
+
+    std::unique_ptr<const Mesh>         mesh;
+    std::unique_ptr<const Basis>    basis;
+
+protected:
+    virtual OfflineResult solve_offline(const OfflineParameters & parameters) override
+    {
+        OfflineTiming timing;
+        crest::Timer timer;
+        const auto h = parameters.mesh_resolution;
+
+        const auto l_shaped = initial_mesh();
+        const auto initial_mesh = l_shaped.first;
+        const auto initial_mesh_corners = l_shaped.second;
+
+        mesh = std::make_unique<const Mesh>(std::move(crest::bisect_to_tolerance(initial_mesh, h)));
+
+        timing.mesh_construction = timer.measure_and_reset();
+
+        basis = std::make_unique<const Basis>(*mesh);
+
+        timing.basis_construction = timer.measure_and_reset();
+
+        return OfflineResult()
+                .with_mesh_details(details_from_meshes(*mesh, *mesh))
+                .with_timing(timing);
+    }
+
+    virtual OnlineResult solve_online(const OnlineParameters & parameters,
+                                      crest::wave::Integrator<double> & integrator) override
+    {
+        crest::wave::InitialConditions<double> ic;
+        ic.u0_h = basis->interpolate(u0);
+        ic.v0_h = basis->interpolate(v0);
+        ic.u0_tt_h = basis->interpolate(u0_tt);
+
+        double assembly_time = 0.0;
+        const auto load = crest::wave::make_dynamic_basis_load_provider(f, *basis, parameters.load_quadrature_strength);
+        const auto bc = crest::wave::make_inhomogeneous_dirichlet(
+                *basis,
+                *load,
+                crest::inspect_timing(assembly_time, [&] { return basis->assemble(); }),
+                g, g_tt);
+        const auto initializer = crest::wave::SeriesExpansionInitializer<double>();
+
+        return solve_and_analyze(u, u_x, u_y, parameters,
+                                 *basis, ic, bc, integrator, initializer, assembly_time);
+    }
+};
