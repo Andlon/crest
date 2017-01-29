@@ -147,8 +147,8 @@ std::unique_ptr<Experiment> make_experiment(const std::string & name)
         return std::make_unique<HomogenizedLShaped<crest::SchurCorrectorSolver<double>>>();
     } else if (name == "homogenized_l_shaped_amg") {
         return std::make_unique<HomogenizedLShaped<crest::AmgCorrectorSolver<double>>>();
-    } else if (name == "standard_l_shaped") {
-        return std::make_unique<StandardLShaped>();
+    } else if (name == "refined_standard_l_shaped") {
+        return std::make_unique<RefinedStandardLShaped>();
     } else {
         throw std::invalid_argument("Unknown experiment requested.");
     }

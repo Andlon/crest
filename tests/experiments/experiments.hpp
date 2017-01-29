@@ -491,7 +491,7 @@ protected:
     }
 };
 
-class StandardLShaped final : public LShapedBase
+class RefinedStandardLShaped final : public LShapedBase
 {
 private:
     typedef crest::BiscaleMesh<double, int> Mesh;
