@@ -284,7 +284,7 @@ namespace crest
         }
 
         std::unordered_map<std::string, AccumulatedDensityHistogram> stats;
-        stats["timing_distribution"] = timing_density.build();
+        stats["timing_distribution"] = timing_density.with_bin_count(100).build();
         set_stats(stats);
 
         Eigen::SparseMatrix<Scalar> basis(mesh.coarse_mesh().num_vertices(), mesh.fine_mesh().num_vertices());
