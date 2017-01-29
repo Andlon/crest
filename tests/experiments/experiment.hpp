@@ -166,7 +166,58 @@ struct MeshDetails
     int num_coarse_elements;
     int num_fine_vertices;
     int num_fine_elements;
+
+    // h is diameter of element
+    double h_max_coarse;
+    double h_min_coarse;
+    double h_max_fine;
+    double h_min_fine;
+
+    MeshDetails() : num_coarse_vertices(0),
+                    num_coarse_elements(0),
+                    num_fine_vertices(0),
+                    num_fine_elements(0),
+                    h_max_coarse(0.0),
+                    h_min_coarse(0.0),
+                    h_max_fine(0.0),
+                    h_min_fine(0.0)
+    { }
 };
+
+std::pair<double, double> extremal_diameters(const crest::IndexedMesh<double, int> & mesh)
+{
+    double hmin_squared = std::numeric_limits<double>::max();
+    double hmax_squared = 0.0;
+
+    for (int element = 0; element < mesh.num_elements(); ++element)
+    {
+        const auto triangle = mesh.triangle_for(element);
+        const auto diameter_squared = crest::diameter_squared(triangle);
+        if (diameter_squared > hmax_squared) {
+            hmax_squared = diameter_squared;
+        }
+        if (diameter_squared < hmin_squared) {
+            hmin_squared = diameter_squared;
+        }
+    }
+
+    return std::make_pair(std::sqrt(hmin_squared), std::sqrt(hmax_squared));
+};
+
+MeshDetails details_from_meshes(const crest::IndexedMesh<double, int> & coarse,
+                                const crest::IndexedMesh<double, int> & fine)
+{
+    MeshDetails details;
+    details.num_coarse_elements = coarse.num_elements();
+    details.num_coarse_vertices = coarse.num_vertices();
+    details.num_fine_elements = fine.num_elements();
+    details.num_fine_vertices = fine.num_vertices();
+
+    std::tie(details.h_min_coarse, details.h_max_coarse) = extremal_diameters(coarse);
+    std::tie(details.h_min_fine, details.h_max_fine) = extremal_diameters(fine);
+
+    return details;
+}
 
 struct ErrorSummary
 {
@@ -408,7 +459,7 @@ protected:
         } else {
             const auto ignore_transformer = crest::wave::IgnoreTransformer<double>();
             auto result = crest::wave::solve(system, initial_conditions, integrator,
-                                                   initializer, param, ignore_transformer);
+                                             initializer, param, ignore_transformer);
             // Augment the result with the given assembly time. Yes, I know, this is very hacky and
             // very poorly designed (last minute additions)
             result.timing.assembly_time = assembly_time;

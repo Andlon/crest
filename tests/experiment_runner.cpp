@@ -74,7 +74,11 @@ auto experiment_result_as_json(const ExperimentResult & result)
                                                                                   { "num_coarse_vertices", mesh_details.num_coarse_vertices },
                                                                                   { "num_coarse_elements", mesh_details.num_coarse_elements },
                                                                                   { "num_fine_vertices", mesh_details.num_fine_vertices },
-                                                                                  { "num_fine_elements", mesh_details.num_fine_elements }
+                                                                                  { "num_fine_elements", mesh_details.num_fine_elements },
+                                                                                  { "h_min_coarse", mesh_details.h_min_coarse },
+                                                                                  { "h_max_coarse", mesh_details.h_max_coarse },
+                                                                                  { "h_min_fine", mesh_details.h_min_fine },
+                                                                                  { "h_max_fine", mesh_details.h_max_fine }
                                                                           }},
                                                         { "timing", {
                                                                             { "mesh_construction", offline_timing.mesh_construction },

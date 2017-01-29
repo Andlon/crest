@@ -62,14 +62,8 @@ protected:
 
         timing.basis_construction = timer.measure_and_reset();
 
-        MeshDetails mesh_details;
-        mesh_details.num_coarse_elements = mesh->num_elements();
-        mesh_details.num_coarse_vertices = mesh->num_vertices();
-        mesh_details.num_fine_elements = mesh->num_elements();
-        mesh_details.num_fine_vertices = mesh->num_vertices();
-
         return OfflineResult()
-                .with_mesh_details(mesh_details)
+                .with_mesh_details(details_from_meshes(*mesh, *mesh))
                 .with_timing(timing);
     }
 
@@ -159,14 +153,8 @@ protected:
 
         timing.basis_construction = timer.measure_and_reset();
 
-        MeshDetails mesh_details;
-        mesh_details.num_coarse_elements = mesh->num_elements();
-        mesh_details.num_coarse_vertices = mesh->num_vertices();
-        mesh_details.num_fine_elements = mesh->num_elements();
-        mesh_details.num_fine_vertices = mesh->num_vertices();
-
         return OfflineResult()
-                .with_mesh_details(mesh_details)
+                .with_mesh_details(details_from_meshes(*mesh, *mesh))
                 .with_timing(timing);
     }
 
@@ -442,7 +430,7 @@ protected:
         mesh_details.num_fine_vertices = mesh->fine_mesh().num_vertices();
 
         return OfflineResult()
-                .with_mesh_details(mesh_details)
+                .with_mesh_details(details_from_meshes(mesh->coarse_mesh(), mesh->fine_mesh()))
                 .with_timing(timing)
                 .with_stats(corrector_solver.stats());
     }
@@ -531,14 +519,8 @@ protected:
 
         timing.basis_construction = timer.measure_and_reset();
 
-        MeshDetails mesh_details;
-        mesh_details.num_coarse_elements = mesh->coarse_mesh().num_elements();
-        mesh_details.num_coarse_vertices = mesh->coarse_mesh().num_vertices();
-        mesh_details.num_fine_elements = mesh->fine_mesh().num_elements();
-        mesh_details.num_fine_vertices = mesh->fine_mesh().num_vertices();
-
         return OfflineResult()
-                .with_mesh_details(mesh_details)
+                .with_mesh_details(details_from_meshes(mesh->coarse_mesh(), mesh->fine_mesh()))
                 .with_timing(timing);
     }
 
