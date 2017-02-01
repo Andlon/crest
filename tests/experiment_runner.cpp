@@ -90,44 +90,40 @@ auto experiment_result_as_json(const ExperimentResult & result)
                             }}
     };
 
-    if (result.online_parameters && result.online_result)
+    if (result.online_parameters) {
+        output["online"]["parameters"] = {
+                { "end_time", result.online_parameters->end_time },
+                { "sample_count", result.online_parameters->sample_count },
+                { "integrator", result.online_parameters->integrator_name },
+                { "load_quadrature_strength", result.online_parameters->load_quadrature_strength },
+                { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
+                { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix },
+                { "iterative_tolerance", result.online_parameters->iterative_tolerance },
+                { "measure_error", result.online_parameters->measure_error }
+        };
+    }
+
+    if (result.online_result)
     {
         const auto errors = result.online_result->error_summary;
         const auto timing = result.online_result->timing;
-        output["online"] = {
-                { "parameters", {
-                                        { "end_time", result.online_parameters->end_time },
-                                        { "sample_count", result.online_parameters->sample_count },
-                                        { "integrator", result.online_parameters->integrator_name },
-                                        { "load_quadrature_strength", result.online_parameters->load_quadrature_strength },
-                                        { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
-                                        { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix },
-                                        { "iterative_tolerance", result.online_parameters->iterative_tolerance },
-                                        { "measure_error", result.online_parameters->measure_error }
-                                }},
-                { "result", {
-                                        { "converged", result.online_result->converged },
-                                        { "error_summary", {
-                                                                  { "h1", errors.h1 },
-                                                                  { "h1_semi", errors.h1_semi },
-                                                                  { "l2", errors.l2 }
-                                                          }},
-                                        { "timing", {
-                                                                { "assembly_time", timing.assembly_time },
-                                                                { "load_time", timing.load_time },
-                                                                { "initializer_time", timing.initializer_time },
-                                                                { "integrator_setup_time", timing.integrator_setup_time },
-                                                                { "integrator_solve_time", timing.integrator_solve_time },
-                                                                { "transform_time", timing.transform_time },
-                                                                { "total_time", timing.total_time }
-                                                        }}
-                                }}
-
+        output["online"]["result"] = {
+                { "converged", result.online_result->converged },
+                { "error_summary", {
+                                       { "h1", errors.h1 },
+                                       { "h1_semi", errors.h1_semi },
+                                       { "l2", errors.l2 }
+                               }},
+                { "timing", {
+                                       { "assembly_time", timing.assembly_time },
+                                       { "load_time", timing.load_time },
+                                       { "initializer_time", timing.initializer_time },
+                                       { "integrator_setup_time", timing.integrator_setup_time },
+                                       { "integrator_solve_time", timing.integrator_solve_time },
+                                       { "transform_time", timing.transform_time },
+                                       { "total_time", timing.total_time }
+                               }}
         };
-    } else if (result.online_parameters || result.online_result)
-    {
-        throw new std::logic_error("Internal error: Online results and parameters should either both be absent,"
-                                           " or both be present.");
     }
 
     return output;
@@ -282,16 +278,22 @@ int main(int, char **)
         auto experiment = make_experiment(experiment_name);
         const auto offline_result = experiment->run_offline(offline_param);
         boost::optional<OnlineResult> online_result;
-        if (online_param)
-        {
-            auto integrator = make_integrator(online_param->integrator_name);
+        boost::optional<std::string> error;
 
-            if (integrator) {
-                integrator->set_tolerance(online_param->iterative_tolerance);
-                online_result = experiment->run_online(*online_param, *integrator);
-            } else {
-                throw std::runtime_error("Unknown integrator requested.");
+        try {
+            if (online_param) {
+                auto integrator = make_integrator(online_param->integrator_name);
+
+                if (integrator) {
+                    integrator->set_tolerance(online_param->iterative_tolerance);
+                    online_result = experiment->run_online(*online_param, *integrator);
+                } else {
+                    throw std::runtime_error("Unknown integrator requested.");
+                }
             }
+        } catch(const std::exception & e) {
+            // This catch block mainly catches errors related to the simulation
+            error = e.what();
         }
 
         const auto result = ExperimentResult()
@@ -300,11 +302,15 @@ int main(int, char **)
                 .with_online_parameters(online_param)
                 .with_offline_result(offline_result)
                 .with_online_result(online_result);
-        const auto json = experiment_result_as_json(result);
+        auto json = experiment_result_as_json(result);
+        if (error) {
+            json["error"] = *error;
+        }
         cout << json.dump(4) << endl;
         return 0;
     } catch (const std::exception & e)
     {
+        // This catch block mainly catches errors related to parsing (missing arguments or malformed input)
         nlohmann::json j = {
                 { "error", e.what() }
         };

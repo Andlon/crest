@@ -492,6 +492,10 @@ inline void verify_parameter_validity(const OnlineParameters & parameters)
     if (parameters.sample_count < 1) {
         throw std::invalid_argument("Number of samples N must be 1 or greater.");
     }
+
+    if (parameters.sample_count % 2 == 0) {
+        throw std::invalid_argument("Number of samples must be an odd number.");
+    }
 }
 
 inline void verify_parameter_validity(const OfflineParameters & parameters)
