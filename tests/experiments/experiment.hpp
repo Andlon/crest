@@ -461,7 +461,7 @@ protected:
                         .with_convergence(result.converged);
             } else {
                 // If the simulation did not converge, we do not want to compute an error at all,
-                // particularly because we might have an odd number of samples (in which case the above would throw)\
+                // particularly because we might have an odd number of samples (in which case the above would throw)
                 // This last part is of course unfortunate, but I don't want to spend time on fixing that at the moment.
                 return OnlineResult()
                         .with_timing(result.timing)
