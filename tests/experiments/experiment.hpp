@@ -417,45 +417,57 @@ protected:
             // very poorly designed (last minute additions)
             result.timing.assembly_time = assembly_time;
 
-            std::vector<double> l2_error_at_each_step;
-            std::vector<double> h1_semi_error_at_each_step;
-            std::vector<double> h1_error_at_each_step;
+            if (result.converged) {
 
-            for (const auto sample_error : result.result)
-            {
-                l2_error_at_each_step.push_back(sample_error.l2);
-                h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
-                h1_error_at_each_step.push_back(sample_error.h1);
+
+                std::vector<double> l2_error_at_each_step;
+                std::vector<double> h1_semi_error_at_each_step;
+                std::vector<double> h1_error_at_each_step;
+
+                for (const auto sample_error : result.result)
+                {
+                    l2_error_at_each_step.push_back(sample_error.l2);
+                    h1_semi_error_at_each_step.push_back(sample_error.h1_semi);
+                    h1_error_at_each_step.push_back(sample_error.h1);
+                }
+
+                ErrorSummary errors;
+
+                switch (param.num_samples) {
+                    case 1:
+                        errors.h1 = h1_error_at_each_step.back();
+                        errors.l2 = l2_error_at_each_step.back();
+                        errors.h1_semi = h1_semi_error_at_each_step.back();
+                        break;
+
+                    default:
+                        // TODO: Support even number of samples. Simpsons will currently throw when it
+                        // is given an even number of samples
+                        errors.l2 = crest::composite_simpsons(l2_error_at_each_step.begin(),
+                                                              l2_error_at_each_step.end(),
+                                                              dt);
+                        errors.h1_semi = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
+                                                                   h1_semi_error_at_each_step.end(),
+                                                                   dt);
+                        errors.h1 = crest::composite_simpsons(h1_error_at_each_step.begin(),
+                                                              h1_error_at_each_step.end(),
+                                                              dt);
+                        break;
+                }
+
+                return OnlineResult()
+                        .with_error_summary(errors)
+                        .with_timing(result.timing)
+                        .with_convergence(result.converged);
+            } else {
+                // If the simulation did not converge, we do not want to compute an error at all,
+                // particularly because we might have an odd number of samples (in which case the above would throw)\
+                // This last part is of course unfortunate, but I don't want to spend time on fixing that at the moment.
+                return OnlineResult()
+                        .with_timing(result.timing)
+                        .with_convergence(result.converged);
             }
 
-            ErrorSummary errors;
-
-            switch (param.num_samples) {
-                case 1:
-                    errors.h1 = h1_error_at_each_step.back();
-                    errors.l2 = l2_error_at_each_step.back();
-                    errors.h1_semi = h1_semi_error_at_each_step.back();
-                    break;
-
-                default:
-                    // TODO: Support even number of samples. Simpsons will currently throw when it
-                    // is given an even number of samples
-                    errors.l2 = crest::composite_simpsons(l2_error_at_each_step.begin(),
-                                                          l2_error_at_each_step.end(),
-                                                          dt);
-                    errors.h1_semi = crest::composite_simpsons(h1_semi_error_at_each_step.begin(),
-                                                               h1_semi_error_at_each_step.end(),
-                                                               dt);
-                    errors.h1 = crest::composite_simpsons(h1_error_at_each_step.begin(),
-                                                          h1_error_at_each_step.end(),
-                                                          dt);
-                    break;
-            }
-
-            return OnlineResult()
-                    .with_error_summary(errors)
-                    .with_timing(result.timing)
-                    .with_convergence(result.converged);
         } else {
             const auto ignore_transformer = crest::wave::IgnoreTransformer<double>();
             auto result = crest::wave::solve(system, initial_conditions, integrator,
