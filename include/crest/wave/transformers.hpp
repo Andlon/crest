@@ -57,8 +57,9 @@ namespace crest
             explicit ErrorTransformer(const crest::Basis<Scalar, BasisImpl> & basis,
                                       const Function2dt & u,
                                       const Function2dt_x & u_x,
-                                      const Function2dt_y & u_y)
-                    : _basis(basis), _u(u), _u_x(u_x), _u_y(u_y) {}
+                                      const Function2dt_y & u_y,
+                                      const Scalar max_error_before_abort = std::numeric_limits<Scalar>::max())
+                    : _basis(basis), _u(u), _u_x(u_x), _u_y(u_y), _max_error(max_error_before_abort) {}
 
             virtual ErrorSample<Scalar> transform(uint64_t i, Scalar t, const VectorX<Scalar> & weights) const override
             {
@@ -73,6 +74,12 @@ namespace crest
                 errors.l2 = _basis.template error_l2<QuadStrength>(u_i, weights);
                 errors.h1_semi = _basis.template error_h1_semi<QuadStrength>(u_x_i, u_y_i, weights);
                 errors.h1 = std::sqrt(errors.l2 * errors.l2 + errors.h1_semi * errors.h1_semi);
+
+                if (errors.h1 > _max_error || errors.l2 > _max_error || errors.h1_semi > _max_error)
+                {
+                    throw ConvergenceError("Measured error is higher than tolerated.");
+                }
+
                 return errors;
             }
 
@@ -81,6 +88,8 @@ namespace crest
             const Function2dt & _u;
             const Function2dt_x & _u_x;
             const Function2dt_y & _u_y;
+
+            const Scalar _max_error;
         };
 
         template <int QuadStrength, typename Scalar, typename BasisImpl,
@@ -89,10 +98,11 @@ namespace crest
         make_error_transformer(const crest::Basis<Scalar, BasisImpl> & basis,
                                const Function2dt & u,
                                const Function2dt_x & u_x,
-                               const Function2dt_y & u_y)
+                               const Function2dt_y & u_y,
+                               const Scalar max_error_before_abort = std::numeric_limits<Scalar>::max())
         {
             return ErrorTransformer<QuadStrength, Scalar, BasisImpl, Function2dt, Function2dt_x, Function2dt_y>
-                    (basis, u, u_x, u_y);
+                    (basis, u, u_x, u_y, max_error_before_abort);
         };
     }
 }

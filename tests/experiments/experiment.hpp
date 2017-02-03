@@ -74,6 +74,7 @@ struct OnlineParameters
     bool use_coarse_mass_matrix;
     double iterative_tolerance;
     bool measure_error;
+    double max_error_before_abort;
 
     std::string integrator_name;
 
@@ -84,7 +85,8 @@ struct OnlineParameters
               use_coarse_rhs(false),
               use_coarse_mass_matrix(false),
               iterative_tolerance(10.0 * std::numeric_limits<double>::epsilon()),
-              measure_error(true)
+              measure_error(true),
+              max_error_before_abort(std::numeric_limits<double>::max())
     {}
 
     OnlineParameters & with_end_time(double end_time)
@@ -409,7 +411,8 @@ protected:
         param.dt = dt;
 
         if (parameters.measure_error) {
-            const auto error_transformer = crest::wave::make_error_transformer<4>(basis, u, u_x, u_y);
+            const auto error_transformer = crest::wave::make_error_transformer<4>(
+                    basis, u, u_x, u_y, parameters.max_error_before_abort);
             auto result = crest::wave::solve(system, initial_conditions,
                                              integrator, initializer, param, error_transformer);
 

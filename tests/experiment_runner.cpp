@@ -99,7 +99,8 @@ auto experiment_result_as_json(const ExperimentResult & result)
                 { "use_coarse_rhs", result.online_parameters->use_coarse_rhs },
                 { "use_coarse_mass_matrix", result.online_parameters->use_coarse_mass_matrix },
                 { "iterative_tolerance", result.online_parameters->iterative_tolerance },
-                { "measure_error", result.online_parameters->measure_error }
+                { "measure_error", result.online_parameters->measure_error },
+                { "max_error_before_abort", result.online_parameters->max_error_before_abort }
         };
     }
 
@@ -245,6 +246,10 @@ OnlineParameters parse_online_parameters(const nlohmann::json & online_json) {
 
     if (const auto measure_error = extract_optional_field(online_json, "measure_error")) {
         parameters.measure_error = *measure_error;
+    }
+
+    if (const auto max_error_before_abort = extract_optional_field(online_json, "max_error_before_abort")) {
+        parameters.max_error_before_abort = *max_error_before_abort;
     }
 
     return parameters;
