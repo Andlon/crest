@@ -9,12 +9,19 @@ def _experiment_runner_path():
 
 
 def run_experiment(params):
-    args = [_experiment_runner_path() ]
+    args = [_experiment_runner_path()]
     result = subprocess.run(args=args,
                             input=json.dumps(params, indent=4),
                             stdout=subprocess.PIPE,
                             universal_newlines=True)
-    return json.loads(result.stdout)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as err:
+        import sys
+        document = err.doc
+        print("Failed to parse output from experiment. Document was: \n\n{}".format(document),
+              file=sys.stderr)
+        raise err
 
 
 def run_experiments(param_collection):
