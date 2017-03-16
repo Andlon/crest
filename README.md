@@ -1,9 +1,9 @@
 # crest
 
 *crest* is an experimental C++14 library for solving the wave equation with finite element methods in non-convex domains.
- It accompanies my Master's thesis *Finite element solutions to the wave
+ It accompanies my Master's thesis [Finite element solutions to the wave
                                     equation in non-convex domains: A relaxation of the CFL condition in the
-                                    presence of local mesh refinement*.
+                                    presence of local mesh refinement](./thesis.pdf).
 
 crest is a library, but it is in no way ready for use in real-world projects. I must emphasize its experimental nature.
 In particular, like most experimental prototypes, it suffers from:
