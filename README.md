@@ -131,7 +131,7 @@ $ mv eigen-eigen*/Eigen external/include/Eigen
 An alternative is to look at the [Travis configuration file](./.travis.yml), which installs all the necessary dependencies
 for use with continuous integration (automatically running the test suite in the cloud upon new commits).
 
-Once you've got these dependencies in order, we will need to recursive initialize and update the git submodules:
+Once you've got these dependencies in order, we will need to recursively initialize and update the git submodules:
 
 ```
 $ git submodule update --init --recursive
