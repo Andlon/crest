@@ -1,0 +1,17 @@
+{
+    "offline": {
+        "oversampling": 2,
+        "mesh_resolution": 0.1
+    },
+    "online": {
+        "sample_count": 1001,
+        "integrator": "lumped_leapfrog",
+        "load_quadrature_strength": 2,
+        "use_coarse_mass_matrix": true,
+        "use_coarse_rhs": true,
+        "end_time": 0.5,
+        "measure_error": true,
+        "max_error_before_abort": 1000
+    },
+    "experiment": "homogenized_l_shaped_schur"
+}
