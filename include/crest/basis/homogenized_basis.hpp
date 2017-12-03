@@ -370,7 +370,7 @@ namespace crest
     VectorX<Scalar> HomogenizedBasis<Scalar>::load(const Function2d & f) const
     {
         const LagrangeBasis2d<Scalar> fine_basis(_mesh.fine_mesh());
-        const auto fine_load = fine_basis.load<QuadStrength>(f);
+        const auto fine_load = fine_basis.template load<QuadStrength>(f);
         const auto & W = _basis_weights;
         return W * fine_load;
     };
@@ -382,7 +382,7 @@ namespace crest
         const LagrangeBasis2d<Scalar> fine_basis(_mesh.fine_mesh());
         const auto & W = _basis_weights;
         const VectorX<Scalar> fine_weights = W.transpose() * weights;
-        return fine_basis.error_l2<QuadStrength>(f, fine_weights);
+        return fine_basis.template error_l2<QuadStrength>(f, fine_weights);
     };
 
     template <typename Scalar>
@@ -394,6 +394,6 @@ namespace crest
         const LagrangeBasis2d<Scalar> fine_basis(_mesh.fine_mesh());
         const auto & W = _basis_weights;
         const VectorX<Scalar> fine_weights = W.transpose() * weights;
-        return fine_basis.error_h1_semi<QuadStrength>(f_x, f_y, fine_weights);
+        return fine_basis.template error_h1_semi<QuadStrength>(f_x, f_y, fine_weights);
     };
 }

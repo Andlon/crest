@@ -54,7 +54,7 @@ namespace crest
         template <typename Function2d>
         VectorX<Scalar> interpolate(const Function2d &f) const
         {
-            return static_cast<const Impl *>(this)->interpolate<Function2d>(f);
+            return static_cast<const Impl *>(this)->template interpolate<Function2d>(f);
         }
 
         /*
@@ -64,7 +64,7 @@ namespace crest
         template <typename Function2d>
         VectorX<Scalar> interpolate_boundary(const Function2d &f) const
         {
-            return static_cast<const Impl *>(this)->interpolate_boundary<Function2d>(f);
+            return static_cast<const Impl *>(this)->template interpolate_boundary<Function2d>(f);
         }
 
         /**
@@ -83,7 +83,7 @@ namespace crest
         template <int QuadStrength, typename Function2d>
         VectorX<Scalar> load(const Function2d &f) const
         {
-            return static_cast<const Impl *>(this)->load<QuadStrength, Function2d>(f);
+            return static_cast<const Impl *>(this)->template load<QuadStrength, Function2d>(f);
         };
 
         /**
@@ -168,7 +168,7 @@ namespace crest
     template <int QuadStrength, typename Function2d>
     Scalar Basis<Scalar, Impl>::error_l2(const Function2d & f, const VectorX<Scalar> & weights) const
     {
-        return static_cast<const Impl *>(this)->error_l2<QuadStrength>(f, weights);
+        return static_cast<const Impl *>(this)->template error_l2<QuadStrength>(f, weights);
     };
 
     template <typename Scalar, typename Impl>
@@ -177,7 +177,7 @@ namespace crest
                                               const Function2d_y & f_y,
                                               const VectorX<Scalar> & weights) const
     {
-        return static_cast<const Impl *>(this)->error_h1_semi<QuadStrength>(f_x, f_y, weights);
+        return static_cast<const Impl *>(this)->template error_h1_semi<QuadStrength>(f_x, f_y, weights);
     };
 
     template <typename Scalar, typename Impl>
